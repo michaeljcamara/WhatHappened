@@ -53,16 +53,64 @@ public class DependencyAnalyzer {
         return types;
     }
 
+    public Assembly assembly; // TODO REMOVE THIS EVENTUALLY
+
     // Use this for initialization
     public DependencyAnalyzer() {
         dependencyTable = new Dictionary<Type, HashSet<Type>>();
+        //Assembly ass = Assembly.LoadFrom("D:/User/Documents/CMPSC/600/SeniorThesisPrototype/Prototype/Assets/Scripts/DependencyAnalyzer.cs");
+        //Type[] types2 = ass.GetTypes();
+        //Debug.LogWarning("NUM TYPES IN DEP ANALYSZER: " + types2.Length);
+        //Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+        //Debug.LogWarning("NUM ASSEMBLIES: " + assemblies.Length);
+        //foreach(Assembly a in assemblies) {
+        //    //Debug.Log("Assembly: " + a.GetName() + ";;; " + a);
+        //    Debug.Log(a.Location);
+        //}
+
 
 
         //Debug.Log(Assembly.GetEntryAssembly().GetFiles());
         Debug.Log(Assembly.GetExecutingAssembly().GetFiles().Length);
         Debug.Log(Assembly.GetExecutingAssembly().GetFiles()[0].Name); //D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Library\ScriptAssemblies\Assembly-CSharp.dll
 
-        Assembly assembly = Assembly.GetExecutingAssembly();
+        //Assembly assembly = Assembly.GetExecutingAssembly();
+        assembly = Assembly.GetExecutingAssembly();
+
+        //TODO check if recursive file traversal
+        System.IO.DirectoryInfo directoryInfo = new System.IO.DirectoryInfo("D:/User/Documents/CMPSC/600/SeniorThesisPrototype/Prototype/Assets/Scripts/");
+        foreach (System.IO.FileInfo fileInfo in directoryInfo.GetFiles()) {
+
+            Debug.Log("FileInfo: " + fileInfo + ";; FullName: " + fileInfo.FullName + " ;; Name + " + fileInfo.Name + " ;; ");
+
+            //assembly.GetFile(fileInfo.FullName); // Cannot find, expecting dll?
+            
+            
+            //assembly.GetFile(fileInfo.FullName);
+            //foreach (Type type in Assembly.LoadFile(fileInfo.FullName).GetTypes()) {
+            //Debug.Log("FileInfo: " + fileInfo.Name + "; Type Name: " + type.Name);
+            //}
+        }
+
+        // Getting folder from project view as UE object
+        //UnityEngine.Object obj = AssetDatabase.LoadAssetAtPath("Assets/MyFolder", typeof(UnityEngine.Object));
+        //UnityEngine.Object[] selection = new UnityEngine.Object[1];
+        //selection[0] = obj;
+        //Selection.objects = selection;
+        ////////////
+
+        //TODO Check if TypeCode != object
+
+        /////
+        //string path = "D:/User/Documents/CMPSC/600/SeniorThesisPrototype/Prototype/Assets/Scripts/DependencyAnalyzer.cs";
+
+        //var asd = Assembly.LoadFile(path);
+        //foreach (var type in asd.GetTypes()) {
+        //    Debug.Log("TYPES IN DEP ANALYZER: " + type.Name);
+
+        //    // do check for type here, depending on how you wish to query
+        //}
+        /////////
 
         //assembly.GetExportedTypes();
         //assembly.GetManifestResourceNames();
@@ -259,7 +307,17 @@ public class DependencyAnalyzer {
         return standardOutputString;
     }
 
-
+    public void Parser() {
+        //System.IO.TextReader readFile = new StreamReader("C:\\csharp.net-informations.txt");
+        //while (true) {
+        //    line = readFile.ReadLine();
+        //    if (line != null) {
+        //        MessageBox.Show(line);
+        //    }
+        //}
+        //readFile.Close();
+        //readFile = null;
+    }
 
 
 
