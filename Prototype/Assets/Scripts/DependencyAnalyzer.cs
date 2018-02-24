@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using System.Runtime.CompilerServices;
 
 public class DependencyAnalyzer {
 
@@ -54,6 +55,23 @@ public class DependencyAnalyzer {
     }
 
     public Assembly assembly; // TODO REMOVE THIS EVENTUALLY
+
+    //sealed class ProvideSourceLocation : Attribute {
+    //    public readonly string File;
+    //    public readonly string Member;
+    //    public readonly int Line;
+    //    public ProvideSourceLocation
+    //        (
+    //        [System.Attribute.CallerMemberName] string file = "",
+    //        [CallerMemberName] string member = "",
+    //        [CallerLineNumber] int line = 0) {
+    //        File = file;
+    //        Member = member;
+    //        Line = line; System.Runtime.CompilerServices.CallerFilePathAttribute
+    //    }
+
+    //    public override string ToString() { return File + "(" + Line + "):" + Member; }
+    //}
 
     // Use this for initialization
     public DependencyAnalyzer() {
