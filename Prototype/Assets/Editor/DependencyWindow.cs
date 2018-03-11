@@ -253,8 +253,19 @@ public class DependencyWindow : EditorWindow {
         Debug.LogWarning("Window disabled!!");
     }
 
+    //private void OnFocus() {
+    //    Debug.Log("FOCUSED");
+    //    UnityEditor.AssetDatabase.Refresh();
+    //}
+
+    //private void OnLostFocus() {
+    //    Debug.Log("LOST FOCUS");
+    //    isInit = false;
+    //}
+
     private void OnEnable() {
         Debug.LogWarning("ENABLEEEEED");
+        
     }
     private Vector2 scale;
     private Vector2 pivotPoint;

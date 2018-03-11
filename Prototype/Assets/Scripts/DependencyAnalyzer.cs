@@ -4,8 +4,26 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using System.Runtime.CompilerServices;
+using System.IO;
+using System.Text.RegularExpressions;
+using GitSharp;
 
 public class DependencyAnalyzer {
+    
+
+    //Comment here
+    /* Multiline comment here*/
+    /* Multilinne
+     *      comment
+     *                  here */
+    //*/*/
+    string o = "Comment after this"; //comment here, newline erased! so immediately after comes "string a..."
+    //string p = "Comment after this";//comment here
+    string a = "//Not a comment";
+    string b = "/* not a comment */";
+    string c = "/*" +
+        "not a commenet"
+        + "*/";
 
     //Dictionary<Type, LinkedList<Type>> dependencyTable;
     public Dictionary<Type, HashSet<Type>> dependencyTable;
@@ -62,19 +80,49 @@ public class DependencyAnalyzer {
     //    public readonly int Line;
     //    public ProvideSourceLocation
     //        (
-    //        [System.Attribute.CallerMemberName] string file = "",
+    //        [CallerFilePath] string file = "",
     //        [CallerMemberName] string member = "",
     //        [CallerLineNumber] int line = 0) {
     //        File = file;
     //        Member = member;
-    //        Line = line; System.Runtime.CompilerServices.CallerFilePathAttribute
+    //        Line = line;
     //    }
 
     //    public override string ToString() { return File + "(" + Line + "):" + Member; }
     //}
 
+
     // Use this for initialization
     public DependencyAnalyzer() {
+
+        //GitSharp.Git.Status(new GitSharp.Commands.StatusCommand());
+
+        GitSharp.Commands.StatusCommand status = new GitSharp.Commands.StatusCommand();
+        //Repository repo = new Repository(status.ActualDirectory);
+        //Repository repo = new Repository(status.GitDirectory);
+
+        //Repository repo = new Repository(GitSharp.Commands.ConfigCommand.FindGitDirectory(".", true, false));
+        Repository repo = new Repository(GitSharp.Repository.FindRepository("."));
+
+        Debug.LogWarning("Repo: " + repo.Directory + ", " + repo.WorkingDirectory);
+
+        //Debug.LogWarning(new Commit(repo, "HEAD^").Message); // 2 commits back?
+        //Debug.LogWarning(repo.CurrentBranch.CurrentCommit.Message);
+        foreach (Change c in repo.CurrentBranch.CurrentCommit.Changes) {
+            //Output: DependencyAnalyzer.cs, Modified, Blob[879a2c02], Prototype/Assets/Scripts/DependencyAnalyzer.cs
+            Debug.LogWarning(c.Name + ", " + c.ChangeType + ", " + c.ChangedObject + ", " + c.Path);
+            
+            //TODO if c.name .endIn(".cs"), then...
+            //TODO Get all file changes between commit1 -> commit20...what if file edited multiple times, which one to analyze?
+                //Easier to have user CHOOSE a commit ,compare against current files / working tree
+            //TODO what to do with branches  
+        }
+
+        //Debug.LogWarning("**GIT VERSION: " + GitSharp.Git.Version);
+        //GitSharp.Git.Status(new GitSharp.Commands.StatusCommand());
+        //Debug.LogWarning("StatusResults: " + new GitSharp.Commands.StatusCommand().ActualDirectory); //StatusResults: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\.git
+
+
         dependencyTable = new Dictionary<Type, HashSet<Type>>();
         //Assembly ass = Assembly.LoadFrom("D:/User/Documents/CMPSC/600/SeniorThesisPrototype/Prototype/Assets/Scripts/DependencyAnalyzer.cs");
         //Type[] types2 = ass.GetTypes();
@@ -86,7 +134,7 @@ public class DependencyAnalyzer {
         //    Debug.Log(a.Location);
         //}
 
-
+        
 
         //Debug.Log(Assembly.GetEntryAssembly().GetFiles());
         Debug.Log(Assembly.GetExecutingAssembly().GetFiles().Length);
@@ -152,11 +200,199 @@ public class DependencyAnalyzer {
 
             foreach (Type type in dependencySet) {
                 Debug.Log("HASHSET TYPES: " + type);
+                //Debug.LogWarning(type.GetCustomAttribute<ProvideSourceLocation>(true));
+                //LogTest(type.Name);
+                Debug.LogWarning("BBBBBBB ");
+
+                //Debug.Log("Path: " + Application.dataPath);
+
+
+
+                //Debug.LogWarning(type.GetMethod("LogTest",BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
+                //Debug.LogWarning(type.GetMethod("TESTTEST", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
+                //Debug.LogWarning(GetType().GetMethod("TESTTEST", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
+                //Debug.LogWarning(GetType().GetMethod("TESTTEST", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance).Invoke(null, null));
+                //Debug.LogWarning(type.GetType().GetMethod("TESTTEST", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance).Invoke(null, null));
             } 
 
             dependencyTable.Add(currentType, dependencySet);
         }
+        Debug.LogWarning("Datapath is: " + Application.dataPath);
+        DirectoryInfo assetDir = new System.IO.DirectoryInfo(Application.dataPath);
+        FileInfo[] csFiles = assetDir.GetFiles("*.cs", System.IO.SearchOption.AllDirectories);
+        
+
+        //TODO consider EnumerateFiles, allows access before all array populated
+        Debug.LogWarning("Iterating all files in Assets");
+        foreach (FileInfo f in csFiles) {
+            Debug.LogWarning("f: " + f + ", name: " + f.Name + ", fullName: " + f.FullName + ", length: " + f.Length);
+            //output: f: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts\ClassC.cs, name: ClassC.cs, fullName: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts\ClassC.cs, length: 276
+
+            Type[] typesInFile = GetTypesInFile(f);
+        }
     }
+
+    private Type[] GetTypesInFile(FileInfo file) {
+
+        /* Goals for parsing files
+         * Isolate CLASSES (or broadly Types) within file, so we can link files in Git with types in Assembly
+         *      By removing comments and string, then searches for "class SomeName" are easier to perform
+         * Find line boundaries for classes (and methods??) within file
+         *      
+         * Considerations
+         *      If replacing text, make sure don't remove newlines
+         *      
+         */
+
+        //note ReadAllLines returns string[]
+        string text = File.ReadAllText(file.FullName);
+        
+         //string blockComments = @"/\*(.*?)\*/"; // another variant
+        string lineComments = @"//(.*?)\r?\n";
+        string strings = @"""((\\[^\n]|[^""\n])*)""";
+        string verbatimStrings = @"@(""[^""]*"")+";
+        //string blockComments = @"/\*
+
+        //                            \*/";
+
+        //string blockComments = @"/\*((.*)(?:\n*))*\*/";
+        //string blockComments = @"/\*((.*?)(?:\n*))\*/";
+        //string blockComments = @"/\*((.*?)(\n*))\*/";
+        //string blockComments = @"/\*((.*?)(comment)(.*?))\*/";
+        //string blockComments = @"/\*((.*?)(?:comment)(.*?))\*/";
+        string blockComments = @"/\*((.*?)(?:\bcomment\b)(.*?))\*/";
+
+
+        //string combinedPattern = blockComments + "|" + lineComments + "|" + strings + "|" + verbatimStrings;
+        string combinedPattern = blockComments + "|" + lineComments + "|^" + strings + "|^" + verbatimStrings;
+        
+        //**TRY SOMETHING LIKE regest.isMatch(blockComments) && !regex.isMatch(string) // So dont include strings
+
+        Regex regex = new Regex(combinedPattern, RegexOptions.Singleline); // CAN use regexoptions, ignorecase
+                                                                           //MatchEvaluator evaluator = new MatchEvaluator(CheckMatch)
+        //text = regex.Replace(text, "");
+        Regex lineCommentRegex = new Regex(lineComments, RegexOptions.Singleline); // CAN use regexoptions, ignorecase
+                                                                                   //text = lineCommentRegex.Replace(text, "\n"); //WORKS!
+
+        //Line comments, do something like: for each match, count \n, replace with "\n\n\n" based on num \n
+
+        Regex blockCommentRegex = new Regex(blockComments, RegexOptions.Singleline); // Umm, multiline?
+        //MatchCollection blockCommentCollection = regex.Matches(text);
+        //foreach (Match m in blockCommentCollection) {
+        //    Debug.Log("Found match: " + m.Value);
+        //}
+
+        //Debug.LogWarning("NumMatches: " + blockCommentRegex.Matches(text).Count);
+        //foreach(Match m in blockCommentRegex.Matches(text)) {
+        //    foreach(Group g in m.Groups) {
+
+        //        Debug.Log("Group : " + g);
+
+        //    }
+
+        //    foreach(Capture c in m.Captures) {
+        //        Debug.Log("Capture: " + c);
+        //    }
+        //}
+
+        text = blockCommentRegex.Replace(text, "");
+        
+
+        Debug.LogWarning(text); 
+
+        //string testText = "This is a /* first block \n\n\n comment last */ then nothing";
+        string testText = "This is a /* first \nblock \n\n\n comment \nlast */ then \nnothing";
+        //string testPattern = @"/\*(?:.*?)\*/";
+        //string testPattern = @"(?:/\*(?:.*?)\*/)";
+        //string testPattern = @"/\*(.*?)\*/";
+        //string testPattern = @"/\*(.*?)(\n*)(.*?)\*/";
+        //string testPattern = @"/\*.*(\n)*.*\*/"; 
+        //string testPattern = @"/\*.*(\n*).*\*/";
+        //string testPattern = @"/\*([^\n]*)(\n*)([^\n]*)\*/"; //works, only newlines in middle
+        //string testPattern = @"/\*[^\n]*(\n*)[^\n]*\*/"; //works, only newlines in middle
+        //string testPattern = @"/\*[^\n]*(\n)*[^\n]*\*/"; //works, only newlines in middle
+        //string testPattern = @"/\*[^\n]*(?<newline>\n)*[^\n]*\*/"; //works, only newlines in middle
+
+        //string testPattern = @"/\*([^\n]*(?<newline>\n)*)*?\*/"; //works
+        //string testPattern = @"/\*(.*?(?<newline>\n)*)*?\*/"; //works, 1000* faster with .*?
+        string testPattern = @"/\* #start with /*
+                            (.*? #follow with any number of chars (NOT \n)
+                            (?<newline>\n)*) #then any num consecutive \n 
+                            *? #then repeat finding these occurences within /**/ boundary
+                            \*/ #end with */
+                            "; //works, 1000* faster with .*?
+                            //Consider a way for lookahead, performance saver
+
+        Regex testRegex = new Regex(testPattern, RegexOptions.IgnorePatternWhitespace);
+        //Rem COMPILE option, faster? need different api compatibility?
+
+
+
+
+        foreach (Match m in testRegex.Matches(testText)) {
+            Debug.Log("**Num newlines: " + m.Groups["newline"].Captures.Count);
+
+            //foreach (Group g in m.Groups) {
+
+            //    Debug.Log("Group : " + g + ", " + g.Value.Length);
+
+            //    foreach (Capture c in g.Captures) {
+            //        Debug.Log("Capture WITHIN g: " + c + ", " + c.Length);
+            //    }
+
+            //}
+
+            //foreach (Capture c in m.Captures) {
+            //    Debug.Log("Capture: " + c);
+            //}
+        }
+
+
+
+        testText = testRegex.Replace(testText, "-REPLACED-");
+        Debug.LogWarning(testText);
+        
+        //Debug.LogWarning("NumMatches: " + blockCommentRegex.Matches();
+
+        //    string noComments = Regex.Replace(text,
+        //blockComments + "|" + lineComments + "|" + strings + "|" + verbatimStrings,
+        //me => {
+        //    if (me.Value.StartsWith("/*") || me.Value.StartsWith("//"))
+        //        return me.Value.StartsWith("//") ? Environment.NewLine : "";
+        //    // Keep the literal strings
+        //    return me.Value;
+        //},
+        //RegexOptions.Singleline);
+
+        //    Debug.LogWarning(noComments);
+
+        return null;
+    }
+
+    private string ReplaceBlockComments(Match m) {
+
+        foreach(Group g in m.Groups) {
+            string name = g.Value;
+            Debug.Log("Group value = " + g.Value + ", Name = " + g.ToString());
+        }
+
+        return "";
+    }
+
+    
+
+    public static void TESTTEST() {
+        Debug.LogWarning("TESTING TESTING TESTING");
+    }
+
+    //public static void LogTest(string text,
+    //                    [CallerFilePath] string file = "",
+    //                    [CallerMemberName] string member = "",
+    //                    [CallerLineNumber] int line = 0) {
+    //    //Debug.LogWarning("TYPE: " + text + ", PATH: " + System.IO.Path.GetFileName(file)); // DependencyAnalyzer.cs
+    //    Debug.LogWarning("TYPE: " + text + ", PATH: " + System.IO.Path.GetFullPath(file)); // D:/users/docs/... etc
+
+    //}
 
     void TestingReflection() {
 

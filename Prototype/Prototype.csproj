@@ -298,12 +298,44 @@
     <Reference Include="UnityEditor.iOS.Extensions.Common">
       <HintPath>Library\UnityAssemblies\UnityEditor.iOS.Extensions.Common.dll</HintPath>
     </Reference>
+    <Reference Include="Tamir.SharpSSH">
+      <HintPath>Assets\Editor\GitSharp\Tamir.SharpSSH.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib">
+      <HintPath>Assets\Editor\GitSharp\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
+    <Reference Include="GitSharp.Tests">
+      <HintPath>Assets\Editor\GitSharp\GitSharp.Tests.dll</HintPath>
+    </Reference>
+    <Reference Include="GitSharp.Core">
+      <HintPath>Assets\Editor\GitSharp\GitSharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Winterdom.IO.FileMap">
+      <HintPath>Assets\Editor\GitSharp\Winterdom.IO.FileMap.dll</HintPath>
+    </Reference>
+    <Reference Include="GitSharp">
+      <HintPath>Assets\Editor\GitSharp\GitSharp.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\ClassA.cs" />
     <Compile Include="Assets\Scripts\ClassB.cs" />
     <Compile Include="Assets\Scripts\ClassC.cs" />
+    <Compile Include="Assets\Scripts\CustomType.cs" />
     <Compile Include="Assets\Scripts\DependencyAnalyzer.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Assets\Editor\GitSharp\Demo.txt" />
+    <None Include="Assets\Editor\GitSharp\Git.xml" />
+    <None Include="Assets\Editor\GitSharp\GitSharp licence.txt" />
+    <None Include="Assets\Editor\GitSharp\GitSharp.Core.xml" />
+    <None Include="Assets\Editor\GitSharp\GitSharp.Tests.xml" />
+    <None Include="Assets\Editor\GitSharp\GitSharp.xml" />
+    <None Include="Assets\Editor\GitSharp\Indentation.txt" />
+    <None Include="Assets\Editor\GitSharp\JGit licence.txt" />
+    <None Include="Assets\Editor\GitSharp\MiscUtil licence.txt" />
+    <None Include="Assets\Editor\GitSharp\README.txt" />
+    <None Include="Assets\Editor\GitSharp\Winterdom.IO.FileMap License.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="GenerateTargetFrameworkMonikerAttribute" />

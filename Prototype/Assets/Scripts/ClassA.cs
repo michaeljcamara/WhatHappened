@@ -7,7 +7,7 @@ using UnityEngine;
 public class ClassA : MonoBehaviour {
 
     public int testInt;
-    public float testFloat;
+    public float testFloat; 
     public ClassB testClass;
 
     // Use this for initialization
