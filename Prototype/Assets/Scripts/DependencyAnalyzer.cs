@@ -276,45 +276,14 @@ public class DependencyAnalyzer {
 
         //Line comments, do something like: for each match, count \n, replace with "\n\n\n" based on num \n
 
-        Regex blockCommentRegex = new Regex(blockComments, RegexOptions.Singleline); // Umm, multiline?
-        //MatchCollection blockCommentCollection = regex.Matches(text);
-        //foreach (Match m in blockCommentCollection) {
-        //    Debug.Log("Found match: " + m.Value);
-        //}
-
-        //Debug.LogWarning("NumMatches: " + blockCommentRegex.Matches(text).Count);
-        //foreach(Match m in blockCommentRegex.Matches(text)) {
-        //    foreach(Group g in m.Groups) {
-
-        //        Debug.Log("Group : " + g);
-
-        //    }
-
-        //    foreach(Capture c in m.Captures) {
-        //        Debug.Log("Capture: " + c);
-        //    }
-        //}
-
+        Regex blockCommentRegex = new Regex(blockComments, RegexOptions.Singleline); // Umm, 
         text = blockCommentRegex.Replace(text, "");
         
 
         Debug.LogWarning(text); 
 
-        //string testText = "This is a /* first block \n\n\n comment last */ then nothing";
-        string testText = "This is a /* first \nblock \n\n\n comment \nlast */ then \nnothing";
-        //string testPattern = @"/\*(?:.*?)\*/";
-        //string testPattern = @"(?:/\*(?:.*?)\*/)";
-        //string testPattern = @"/\*(.*?)\*/";
-        //string testPattern = @"/\*(.*?)(\n*)(.*?)\*/";
-        //string testPattern = @"/\*.*(\n)*.*\*/"; 
-        //string testPattern = @"/\*.*(\n*).*\*/";
-        //string testPattern = @"/\*([^\n]*)(\n*)([^\n]*)\*/"; //works, only newlines in middle
-        //string testPattern = @"/\*[^\n]*(\n*)[^\n]*\*/"; //works, only newlines in middle
-        //string testPattern = @"/\*[^\n]*(\n)*[^\n]*\*/"; //works, only newlines in middle
-        //string testPattern = @"/\*[^\n]*(?<newline>\n)*[^\n]*\*/"; //works, only newlines in middle
-
-        //string testPattern = @"/\*([^\n]*(?<newline>\n)*)*?\*/"; //works
-        //string testPattern = @"/\*(.*?(?<newline>\n)*)*?\*/"; //works, 1000* faster with .*?
+        string testText = "This is a /* first \nblock \n\n\n " +
+            "comment \nlast */ then \nnothing";
         string testPattern = @"/\* #start with /*
                             (.*? #follow with any number of chars (NOT \n)
                             (?<newline>\n)*) #then any num consecutive \n 
@@ -325,9 +294,6 @@ public class DependencyAnalyzer {
 
         Regex testRegex = new Regex(testPattern, RegexOptions.IgnorePatternWhitespace);
         //Rem COMPILE option, faster? need different api compatibility?
-
-
-
 
         foreach (Match m in testRegex.Matches(testText)) {
             Debug.Log("**Num newlines: " + m.Groups["newline"].Captures.Count);
@@ -347,27 +313,111 @@ public class DependencyAnalyzer {
             //}
         }
 
-
+        //string strings = @"""((\\[^\n]|[^""\n])*)""";
+        //string verbatimStrings = @"@(""[^""]*"")+";
 
         testText = testRegex.Replace(testText, "-REPLACED-");
         Debug.LogWarning(testText);
-        
-        //Debug.LogWarning("NumMatches: " + blockCommentRegex.Matches();
 
-        //    string noComments = Regex.Replace(text,
-        //blockComments + "|" + lineComments + "|" + strings + "|" + verbatimStrings,
-        //me => {
-        //    if (me.Value.StartsWith("/*") || me.Value.StartsWith("//"))
-        //        return me.Value.StartsWith("//") ? Environment.NewLine : "";
-        //    // Keep the literal strings
-        //    return me.Value;
-        //},
-        //RegexOptions.Singleline);
 
-        //    Debug.LogWarning(noComments);
+        //string testStringText = "This is \"a string\" and \"here is comment///*//*/\"";
+
+        //string testStringText = "OUT1\"First \"    " + "OUT2\"second \"" + "OUT3\"third.\"___OUT55";
+        string testStringText = "TestEscape\\\"Again\\\"OUT1\"First \"    " + "OUT2\"second \"" + "OUT3\"third.\"___OUT55";
+
+        //string testStringPattern = @"""(.*?)""";
+        //string testStringPattern = @"^(.*?)""(.*?)""(.*?)$"; 
+        //string testStringPattern = @"^[^""]*""(.*)""[^""]*$";
+        //string testStringPattern = @"^([^""]*?""(.*?)"")*?$"; //works excluding quotes
+        //string testStringPattern = @"^([^""]*?("".*?""))*?$"; //works including quotes
+        //string testStringPattern = @"^([^""]*?("".*?""))*?$"; //works including quotes
+        //string testStringPattern = @"^((?<before>[^""]*?)(?<stringliteral>"".*?""))(?<after>*?)$"; //argument exception
+        //string testStringPattern = @"^(([^""]*?)(""[^""]*?""))(*?)$"; //argument exception
+        //string testStringPattern = @"^(?:(?<start>[^""]*?)(?<stringliteral>""[^""]*?"")*?)*?$"; 
+        //string testStringPattern = @"^(?:(?<start>[^""]*?)(?<=""[^""]*?"")*?)*?$"; //bad
+        //string testStringPattern = @"^(?:(?<start>.*)(?<stringliteral>""[^""]*?"")*?)*?$";//bad
+        //string testStringPattern = @"^
+        //              ((?<start>[^""]*?)(?<stringliteral>""[^""]*?"")(?<end>[^""]*?))*?
+
+        //$";  //WORKS OMG
+
+        string testStringPattern = @"(?<=^.*)(?<!\\)(""[^""]*?"")"; //YES, each match = string, replace w/"". IGNORE ESCAPED quotes
+
+
+        //(([^""]*?)(""[^""]*?"")([^""]*?))*?  ///WORKS_ish
+        //REM make sure not matching EVERY SINGLE LINE in code
+        //OUT1"First "    OUT2"second "OUT3"third."___OUT4
+        // REM consider multiple strings same line
+        // Rem consider strings with \" in it
+        Regex testStringRegex = new Regex(testStringPattern, RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase);
+
+        foreach (Match m in testStringRegex.Matches(testStringText)) {
+            //Debug.Log("**Num newlines: " + m.Groups["newline"].Captures.Count);
+            Debug.Log(m.Groups["start"].Value + ";;;" + m.Groups["stringliteral"].Value);
+
+            System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder("");
+            foreach (Capture c in m.Groups["start"].Captures) {
+                Debug.Log("START captures: " + c);
+                stringBuilder.Append(c);
+            }
+            foreach (Capture c in m.Groups["end"].Captures) {
+                Debug.Log("END captures: " + c);
+                stringBuilder.Append(c);
+            }
+            foreach (Capture c in m.Groups["stringliteral"].Captures) {
+                Debug.Log("STRINGLITERAL captures: " + c);
+            }
+
+            Debug.Log("**NEW=" + stringBuilder);
+
+            foreach (Group g in m.Groups) {
+
+                Debug.Log("Group : " + g + ", " + g.Value.Length);
+
+                //Want to remove entire string, including quotation marks and inside chars
+                foreach (Capture c in g.Captures) { // THIS ONE, first, second, third
+                    Debug.Log("Capture WITHIN g: " + c + ", " + c.Length);
+
+                }
+
+            }
+
+            foreach (Capture c in m.Captures) {
+                Debug.Log("Capture: " + c);
+            }
+        }
+
+
+        //testStringText = testStringRegex.Replace(testStringText, "-REPLACED-"); 
+        testStringText = testStringRegex.Replace(testStringText, "");
+        Debug.LogError(testStringText);
+        ////ALSO NEED MAINTAIN newlines, since what if "\n\n\n\n"....ugh, but what if actual escaped newline characters in string...then dont want to insert \n
+
+        //**Rem also consider char single quotes '"'
+        //How to handle if / used in both // and /**/
+        // Like ///*** IMPORTANT "////*"
+
+        //Regex order: string, block comments, line comments
+
+        //Do I need to do alternation construct?? matching /**/
+        // something then block /*
+
+        //Try negatrive lookbehind?? look behind the same line
+
+        //**TODO something
+        /*
+         * //*/
+
+        // /*   //THIS DOES NOT START A BLOCK COMMENT
+
+        /* // */  // THIS *DOES-* END A BLOCK COMMENT // rem doesnt need to compile after
+
+            
 
         return null;
     }
+
+    string something(string a) { return "a"; }
 
     private string ReplaceBlockComments(Match m) {
 
