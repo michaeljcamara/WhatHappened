@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.IO;
 using System.Text.RegularExpressions;
 using GitSharp;
+using System.Linq;
 
 public class DependencyAnalyzer {
     
@@ -27,6 +28,10 @@ public class DependencyAnalyzer {
 
     //Dictionary<Type, LinkedList<Type>> dependencyTable;
     public Dictionary<Type, HashSet<Type>> dependencyTable;
+
+    //REM Use CustomType to hold info
+    //TODO how to do key/val for file/type lookup, how am i gonna use
+    //public Dictionary<
 
     HashSet<Type> GetFieldDependencies(Type type) {
 
@@ -60,7 +65,6 @@ public class DependencyAnalyzer {
             if (method.ReturnType != typeof(void)) {
                 types.Add(method.ReturnType);
             }
-
 
             // Local dependencies
             IList<LocalVariableInfo> localVars = methods[0].GetMethodBody().LocalVariables;
@@ -106,6 +110,18 @@ public class DependencyAnalyzer {
 
         Debug.LogWarning("Repo: " + repo.Directory + ", " + repo.WorkingDirectory);
 
+        //What object do i get from log/diff, find changed files, check my early word doc
+
+        //GitSharp.Commands.DiffCommand diffC {
+        ////    dda = stringf;
+        ////};
+        //GitSharp.Commands.LogCommand logC = new GitSharp.Commands.LogCommand {
+        //    Dirstat = "files"
+        //};
+        //GitSharp.Git.Status(;
+        //GitSharp.Commands.StatusCommand k; k.Repository.
+
+        
         //Debug.LogWarning(new Commit(repo, "HEAD^").Message); // 2 commits back?
         //Debug.LogWarning(repo.CurrentBranch.CurrentCommit.Message);
         foreach (Change c in repo.CurrentBranch.CurrentCommit.Changes) {
@@ -206,8 +222,6 @@ public class DependencyAnalyzer {
 
                 //Debug.Log("Path: " + Application.dataPath);
 
-
-
                 //Debug.LogWarning(type.GetMethod("LogTest",BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
                 //Debug.LogWarning(type.GetMethod("TESTTEST", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
                 //Debug.LogWarning(GetType().GetMethod("TESTTEST", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
@@ -220,19 +234,27 @@ public class DependencyAnalyzer {
         Debug.LogWarning("Datapath is: " + Application.dataPath);
         DirectoryInfo assetDir = new System.IO.DirectoryInfo(Application.dataPath);
         FileInfo[] csFiles = assetDir.GetFiles("*.cs", System.IO.SearchOption.AllDirectories);
-        
+
 
         //TODO consider EnumerateFiles, allows access before all array populated
+        HashSet<string> typesAsStrings = new HashSet<string>();
+
         Debug.LogWarning("Iterating all files in Assets");
         foreach (FileInfo f in csFiles) {
             Debug.LogWarning("f: " + f + ", name: " + f.Name + ", fullName: " + f.FullName + ", length: " + f.Length);
             //output: f: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts\ClassC.cs, name: ClassC.cs, fullName: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts\ClassC.cs, length: 276
 
-            Type[] typesInFile = GetTypesInFile(f);
+            typesAsStrings.UnionWith(GetTypeStringInFile(f));
         }
+
+        foreach(string typeString in typesAsStrings) {
+
+        }
+
+        
     }
 
-    private Type[] GetTypesInFile(FileInfo file) {
+    private List<string> GetTypeStringInFile(FileInfo file) {
 
         /* Goals for parsing files
          * Isolate CLASSES (or broadly Types) within file, so we can link files in Git with types in Assembly
@@ -246,154 +268,109 @@ public class DependencyAnalyzer {
 
         //note ReadAllLines returns string[]
         string text = File.ReadAllText(file.FullName);
-        
-         //string blockComments = @"/\*(.*?)\*/"; // another variant
-        string lineComments = @"//(.*?)\r?\n";
-        string strings = @"""((\\[^\n]|[^""\n])*)""";
-        string verbatimStrings = @"@(""[^""]*"")+";
-        //string blockComments = @"/\*
 
-        //                            \*/";
+        string lineCommentPattern = @"(?<=^.*)(//.*?$)";
+        //string lineCommentPattern = @"(?<=^.*)(//.*)(?!.*\*/$)"; //TODO Exclude if */ at end
+        Regex lineCommentRegex = new Regex(lineCommentPattern, RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
 
-        //string blockComments = @"/\*((.*)(?:\n*))*\*/";
-        //string blockComments = @"/\*((.*?)(?:\n*))\*/";
-        //string blockComments = @"/\*((.*?)(\n*))\*/";
-        //string blockComments = @"/\*((.*?)(comment)(.*?))\*/";
-        //string blockComments = @"/\*((.*?)(?:comment)(.*?))\*/";
-        string blockComments = @"/\*((.*?)(?:\bcomment\b)(.*?))\*/";
+        //string blockCommentPattern = @"/\* #start with /*
+        //                    (.*? #follow with any number of chars (NOT \n)
+        //                    (?<newline>\n)*) #then any num consecutive \n 
+        //                    *? #then repeat finding these occurences within /**/ boundary
+        //                    \*/ #end with */
+        //                    "; //works, 1000* faster with .*?
+        //                       //Consider a way for lookahead, performance saver
+        //string blockCommentPattern = @"(?<=/\*) #start with /*
+        //                    (.*? #follow with any number of chars (NOT \n)
+        //                    (?<newline>\n)*?) #then any num consecutive \n 
+        //                    *? #then repeat finding these occurences within /**/ boundary
+        //                    (?=\*/) #end with */
+        //                    "; //works, 1000* faster with .*?
+        //                       //Consider a way for lookahead, performance saver
 
 
-        //string combinedPattern = blockComments + "|" + lineComments + "|" + strings + "|" + verbatimStrings;
-        string combinedPattern = blockComments + "|" + lineComments + "|^" + strings + "|^" + verbatimStrings;
-        
-        //**TRY SOMETHING LIKE regest.isMatch(blockComments) && !regex.isMatch(string) // So dont include strings
+        //string blockCommentPattern = @"/\*.*?\*/";
+        string blockCommentPattern = @"/\*.*?\*/"; // TODO trying to exclude escaped backslash
 
-        Regex regex = new Regex(combinedPattern, RegexOptions.Singleline); // CAN use regexoptions, ignorecase
-                                                                           //MatchEvaluator evaluator = new MatchEvaluator(CheckMatch)
-        //text = regex.Replace(text, "");
-        Regex lineCommentRegex = new Regex(lineComments, RegexOptions.Singleline); // CAN use regexoptions, ignorecase
-                                                                                   //text = lineCommentRegex.Replace(text, "\n"); //WORKS!
+        //TODO MAKE SIMPLE NEW ONE< THEN GET MATCH< GET NUM NEWLINES!!!
+        //Regex blockCommentRegex = new Regex(blockCommentPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Multiline);// |RegexOptions.Singleline);
+        Regex blockCommentRegex = new Regex(blockCommentPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Multiline | RegexOptions.Singleline);
 
-        //Line comments, do something like: for each match, count \n, replace with "\n\n\n" based on num \n
 
-        Regex blockCommentRegex = new Regex(blockComments, RegexOptions.Singleline); // Umm, 
-        text = blockCommentRegex.Replace(text, "");
-        
+        //TODO include literal @ strings
+        string stringPattern = @"(?<=^.*)(?<!\\)(""[^""]*?"")"; //YES, each match = string, replace w/"". IGNORE ESCAPED quotes
+        //string testStringPattern = @"^((?<start>[^""]*?)(?<stringliteral>""[^""]*?"")(?<end>[^""]*?))*?$";  //Separate captures into named groups, so can access string literals
+        Regex stringRegex = new Regex(stringPattern, RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase);
 
-        Debug.LogWarning(text); 
+        //TEST LINE COMMENT
+        string testLineComment = "string a = something;//then other stuff*/\nOn next line";
+        testLineComment = lineCommentRegex.Replace(testLineComment, "");
+        Debug.LogError("TEST LINE: " + testLineComment);
 
-        string testText = "This is a /* first \nblock \n\n\n " +
+        //TEST BLOCK COMMENT
+        string testBlockText = "TestEscape\\nThis is a /* first testEscape\\n \nblock \n\n\n " +
             "comment \nlast */ then \nnothing";
-        string testPattern = @"/\* #start with /*
-                            (.*? #follow with any number of chars (NOT \n)
-                            (?<newline>\n)*) #then any num consecutive \n 
-                            *? #then repeat finding these occurences within /**/ boundary
-                            \*/ #end with */
-                            "; //works, 1000* faster with .*?
-                            //Consider a way for lookahead, performance saver
-
-        Regex testRegex = new Regex(testPattern, RegexOptions.IgnorePatternWhitespace);
-        //Rem COMPILE option, faster? need different api compatibility?
-
-        foreach (Match m in testRegex.Matches(testText)) {
+        foreach (Match m in blockCommentRegex.Matches(testBlockText)) {
             Debug.Log("**Num newlines: " + m.Groups["newline"].Captures.Count);
-
-            //foreach (Group g in m.Groups) {
-
-            //    Debug.Log("Group : " + g + ", " + g.Value.Length);
-
-            //    foreach (Capture c in g.Captures) {
-            //        Debug.Log("Capture WITHIN g: " + c + ", " + c.Length);
-            //    }
-
-            //}
-
-            //foreach (Capture c in m.Captures) {
-            //    Debug.Log("Capture: " + c);
-            //}
         }
+        testBlockText = blockCommentRegex.Replace(testBlockText, "-REPLACED-");
+        Debug.LogError("BLOCK TEST: " + testBlockText);
 
-        //string strings = @"""((\\[^\n]|[^""\n])*)""";
-        //string verbatimStrings = @"@(""[^""]*"")+";
-
-        testText = testRegex.Replace(testText, "-REPLACED-");
-        Debug.LogWarning(testText);
-
-
-        //string testStringText = "This is \"a string\" and \"here is comment///*//*/\"";
-
-        //string testStringText = "OUT1\"First \"    " + "OUT2\"second \"" + "OUT3\"third.\"___OUT55";
-        string testStringText = "TestEscape\\\"Again\\\"OUT1\"First \"    " + "OUT2\"second \"" + "OUT3\"third.\"___OUT55";
-
-        //string testStringPattern = @"""(.*?)""";
-        //string testStringPattern = @"^(.*?)""(.*?)""(.*?)$"; 
-        //string testStringPattern = @"^[^""]*""(.*)""[^""]*$";
-        //string testStringPattern = @"^([^""]*?""(.*?)"")*?$"; //works excluding quotes
-        //string testStringPattern = @"^([^""]*?("".*?""))*?$"; //works including quotes
-        //string testStringPattern = @"^([^""]*?("".*?""))*?$"; //works including quotes
-        //string testStringPattern = @"^((?<before>[^""]*?)(?<stringliteral>"".*?""))(?<after>*?)$"; //argument exception
-        //string testStringPattern = @"^(([^""]*?)(""[^""]*?""))(*?)$"; //argument exception
-        //string testStringPattern = @"^(?:(?<start>[^""]*?)(?<stringliteral>""[^""]*?"")*?)*?$"; 
-        //string testStringPattern = @"^(?:(?<start>[^""]*?)(?<=""[^""]*?"")*?)*?$"; //bad
-        //string testStringPattern = @"^(?:(?<start>.*)(?<stringliteral>""[^""]*?"")*?)*?$";//bad
-        //string testStringPattern = @"^
-        //              ((?<start>[^""]*?)(?<stringliteral>""[^""]*?"")(?<end>[^""]*?))*?
-
-        //$";  //WORKS OMG
-
-        string testStringPattern = @"(?<=^.*)(?<!\\)(""[^""]*?"")"; //YES, each match = string, replace w/"". IGNORE ESCAPED quotes
-
-
-        //(([^""]*?)(""[^""]*?"")([^""]*?))*?  ///WORKS_ish
-        //REM make sure not matching EVERY SINGLE LINE in code
-        //OUT1"First "    OUT2"second "OUT3"third."___OUT4
-        // REM consider multiple strings same line
-        // Rem consider strings with \" in it
-        Regex testStringRegex = new Regex(testStringPattern, RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase);
-
-        foreach (Match m in testStringRegex.Matches(testStringText)) {
-            //Debug.Log("**Num newlines: " + m.Groups["newline"].Captures.Count);
-            Debug.Log(m.Groups["start"].Value + ";;;" + m.Groups["stringliteral"].Value);
-
-            System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder("");
-            foreach (Capture c in m.Groups["start"].Captures) {
-                Debug.Log("START captures: " + c);
-                stringBuilder.Append(c);
-            }
-            foreach (Capture c in m.Groups["end"].Captures) {
-                Debug.Log("END captures: " + c);
-                stringBuilder.Append(c);
-            }
-            foreach (Capture c in m.Groups["stringliteral"].Captures) {
-                Debug.Log("STRINGLITERAL captures: " + c);
-            }
-
-            Debug.Log("**NEW=" + stringBuilder);
-
-            foreach (Group g in m.Groups) {
-
-                Debug.Log("Group : " + g + ", " + g.Value.Length);
-
-                //Want to remove entire string, including quotation marks and inside chars
-                foreach (Capture c in g.Captures) { // THIS ONE, first, second, third
-                    Debug.Log("Capture WITHIN g: " + c + ", " + c.Length);
-
-                }
-
-            }
-
-            foreach (Capture c in m.Captures) {
-                Debug.Log("Capture: " + c);
-            }
-        }
-
-
-        //testStringText = testStringRegex.Replace(testStringText, "-REPLACED-"); 
-        testStringText = testStringRegex.Replace(testStringText, "");
+        //TEST STRING
+        string testStringText = "TestEscape\\\"Again\\\"OUT1\"First \"    " + "OUT2\"second \"" + "OUT3\"third.\"___OUT55";     
+        testStringText = stringRegex.Replace(testStringText, "");
         Debug.LogError(testStringText);
-        ////ALSO NEED MAINTAIN newlines, since what if "\n\n\n\n"....ugh, but what if actual escaped newline characters in string...then dont want to insert \n
 
-        //**Rem also consider char single quotes '"'
+        //REPLACE FILE CONTENTS
+
+        text = stringRegex.Replace(text, "");
+
+        //text = blockCommentRegex.Match(text, );
+        text = blockCommentRegex.Replace(text, delegate(Match m) {
+
+            Debug.Log("Curr match = " + m.Value);
+            int numNewlines = m.Value.Count(x => x == '\n');
+            Debug.Log("**Num newlines: " + numNewlines);
+            System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder("");
+            for (int i = 0; i < numNewlines; i++) {
+                stringBuilder.Append("\n");
+            }
+
+            return stringBuilder.ToString();
+        });
+
+        //foreach (Match m in blockCommentRegex.Matches(text)) {
+
+
+        //    //int numNewlines = m.Groups["newline"].Captures.Count;
+        //    Debug.Log("Curr match = " + m.Value);
+        //    int numNewlines = m.Value.Count(x => x == '\n');
+        //    Debug.Log("**Num newlines: " + numNewlines);
+        //    System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder("");
+        //    for (int i = 0; i < numNewlines; i++) {
+        //        stringBuilder.Append("\n");
+        //    }
+        //    m.Result(stringBuilder.ToString());
+        //}
+
+        text = lineCommentRegex.Replace(text, "");
+
+        Debug.LogError("TEXT: " + text);
+
+        System.Text.StringBuilder fileString = new System.Text.StringBuilder("");
+        using (StringReader reader = new StringReader(text)) {
+            string line;
+            int lineNum = 1;
+            while ((line = reader.ReadLine()) != null) {
+                //line.Insert(0, lineNum.ToString());
+                fileString.Append(lineNum.ToString() + line + "\n");
+                lineNum++;
+            }
+        }
+
+        Debug.LogError("NEW TEXT: " + fileString.ToString());
+
+
         //How to handle if / used in both // and /**/
         // Like ///*** IMPORTANT "////*"
 
@@ -406,18 +383,27 @@ public class DependencyAnalyzer {
 
         //**TODO something
         /*
-         * //*/
+         * //*/ //hjlhjl */
 
         // /*   //THIS DOES NOT START A BLOCK COMMENT
 
         /* // */  // THIS *DOES-* END A BLOCK COMMENT // rem doesnt need to compile after
+        List<string> classStrings = new List<string>();
+        string classPattern = @"(?<=\b class .*?)(?<class>\w+) (?=\s*?{)";
+        Regex classRegex = new Regex(classPattern, RegexOptions.IgnorePatternWhitespace);
+        string testClassString = "something class SomeClass {}\n something class SomeClass2{}";
+        //testClassString = classRegex.Replace(testClassString, "-REPLACED-");
+        Debug.LogError("TEST CLASS: " + testClassString);
 
-            
-
-        return null;
+        // Rem might need to trim classes
+        foreach(Match m in classRegex.Matches(testClassString)) {
+            foreach(Capture c in m.Groups["class"].Captures) {
+                Debug.Log("Captured class: " + c);
+                classStrings.Add(c.Value);
+            }
+        }
+        return classStrings;
     }
-
-    string something(string a) { return "a"; }
 
     private string ReplaceBlockComments(Match m) {
 
@@ -428,201 +414,171 @@ public class DependencyAnalyzer {
 
         return "";
     }
-
     
+    //void TestingReflection() {
 
-    public static void TESTTEST() {
-        Debug.LogWarning("TESTING TESTING TESTING");
-    }
+    //    //Debug.Log(Assembly.GetCallingAssembly().GetFiles().Length);
 
-    //public static void LogTest(string text,
-    //                    [CallerFilePath] string file = "",
-    //                    [CallerMemberName] string member = "",
-    //                    [CallerLineNumber] int line = 0) {
-    //    //Debug.LogWarning("TYPE: " + text + ", PATH: " + System.IO.Path.GetFileName(file)); // DependencyAnalyzer.cs
-    //    Debug.LogWarning("TYPE: " + text + ", PATH: " + System.IO.Path.GetFullPath(file)); // D:/users/docs/... etc
+    //    UnityEngine.Object[] objs = Resources.FindObjectsOfTypeAll<MonoBehaviour>() as UnityEngine.Object[];
 
+    //    ClassB a;
+
+    //    for (int i = 0; i < objs.Length; i++) {
+    //        Debug.LogWarning(objs[i].name + ", " + objs[i].GetType());
+    //        //Debug.Log(objs[i].GetType().FullName);
+    //        //Debug.Log(objs[i].GetType());
+    //        //Debug.Log(objs[i].GetType().AssemblyQualifiedName);
+    //    }
+
+    //    UnityEngine.Object chosenObject = objs[3];
+    //    Debug.Log(chosenObject.name + ", " + chosenObject.GetType());
+    //    Type chosenType = chosenObject.GetType();
+    //    MethodInfo methodInfo = chosenType.GetMethod("PrivateMethod1", BindingFlags.NonPublic | BindingFlags.Instance);
+    //    FieldInfo fieldInfo = chosenType.GetField("testClass", BindingFlags.Public | BindingFlags.Instance);
+
+
+
+    //    Debug.Log(fieldInfo);
+
+    //    //System.Diagnostics.Process p;
+    //    //p.Start();
+    //    //Debug.Log(testa.FullName);
+
+
+    //    Debug.Log(methodInfo);
+    //    MethodBody methodBody = methodInfo.GetMethodBody();
+    //    IList<LocalVariableInfo> localList = methodBody.LocalVariables;
+    //    for (int i = 0; i < localList.Count; i++) {
+    //        //Debug.Log(localList[i].ToString());
+    //        Debug.Log("Local Type: " + localList[i].LocalType);
+    //    }
+
+    //    Debug.LogWarning("NOW doing getFIELDS");
+
+    //    // This ignores PRIVATE, but includes STATIC
+    //    //FieldInfo[] fields = chosenType.GetFields();
+    //    //foreach(FieldInfo field in fields) {
+    //    //    Debug.Log(field);
+    //    //}
+
+
+    //    FieldInfo[] fields2 = chosenType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static); // Includes all?
+    //                                                                                                                                            //FieldInfo[] fields2 = chosenType.GetFields(BindingFlags.Instance | BindingFlags.Public); // Does not include private, protected, or static
+    //                                                                                                                                            //FieldInfo[] fields2 = chosenType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); // Does not include static
+
+    //    // In lexical order
+    //    foreach (FieldInfo field in fields2) {
+    //        Debug.Log(field);
+    //    }
+
+    //    Debug.LogWarning("NOW doing getMETHODS");
+
+    //    //MethodInfo[] methods = chosenType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static); // Includes all?)
+    //    MethodInfo[] methods = chosenType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly); // ONLY base, target class (if derived, does not include inherited methods!!)
+    //    //TODO: Consider how to handle inherited methods, BUT exclude System, Unity, etc packages
+    //    //TODO: how to consider generic parameters?
+    //    foreach (MethodInfo method in methods) {
+    //        Debug.Log(method);
+    //        Debug.Log("Declaring type: " + method.DeclaringType);
+    //        //method.GetBaseDefinition(); // IF derived, overridden method, need to consider base implementation (if using base.Super() //lookup my lotb overides);
+    //        //method.GetGenericArguments(); // HOW to handle generics?
+    //        method.GetParameters();
+    //    }
+
+
+
+    //    //MAKE DERIVED / DERIVED / DERIVED CLASS...should changes be restricted just to the derived class? or, also base?
+
+
+    //    //Debug.Log(ScoreManager.score);
+    //    //Type[] uniqueObjects = (UnityEngine.Object[]) objs.Distinct();
+    //    //             Asdasd d = objs.Distinct();
+    //    //             for (int i = 0; i < uniqueObjects.Length; i++) {
+    //    //                 Debug.LogWarning(uniqueObjects[i].name);
+    //    //             }
+    //    // 
+    //    //             Debug.LogWarning(objs.Length);
+    //    //             Debug.LogWarning("OMG!!");
+
+    //    //         // Start the child process.
+    //    //         System.Diagnostics.Process p = new System.Diagnostics.Process();
+    //    //         // Redirect the output stream of the child process.
+    //    //         p.StartInfo.UseShellExecute = false;
+    //    //         p.StartInfo.RedirectStandardOutput = true;
+    //    //         //p.StartInfo.FileName = Config.GitExectuable;
+    //    //         //p.StartInfo.Arguments = command;
+    //    //         p.StartInfo.Arguments = "git log";
+    //    //         p.Start();
+    //    //         // Read the output stream first and then wait.
+    //    //         string output = p.StandardOutput.ReadToEnd();
+    //    //         p.WaitForExit();
+
+    //    //Debug.Log(Execute("C:/Program Files/Git/bin/git.exe", "version", true));
+    //    //Debug.Log(Execute("C:/Program Files/Git/bin/git.exe", "log --follow --format=full --stat --since 01-01-01 -p Source/My2DGame/Private/Animator.cpp", true));
+    //    //handle / to \
+    //    //Cannot be outside repository
+    //    //Debug.Log(Execute("C:/Program Files/Git/bin/git.exe", "log --follow --format=full --stat --since 01-01-01 -p D:/Unreal/MannequinProject/UnrealPractice/Source/My2DGame/Private/Animator.cpp", true));
+
+    //    //WORKS
+    //    //Debug.Log(Execute("C:/Program Files/Git/bin/git.exe", "log", true));
+
+    //    //var output = RunProcess(string.Format(" --git-dir={0}/.git --work-tree={1} log --name-status", path.Replace("\\", "/"), path.Replace("\\", "/")));
     //}
 
-    void TestingReflection() {
+    //public static string Execute(string executable,
+    //    string arguments,
+    //    bool standardOutput = false,
+    //    bool standardError = false,
+    //    bool throwOnError = false) {
+    //    // This will be out return string
+    //    string standardOutputString = "standard output string";
+    //    string standardErrorString = "standard error string";
 
-        //Debug.Log(Assembly.GetCallingAssembly().GetFiles().Length);
+    //    // Use process
+    //    System.Diagnostics.Process process;
 
-        UnityEngine.Object[] objs = Resources.FindObjectsOfTypeAll<MonoBehaviour>() as UnityEngine.Object[];
+    //    try {
+    //        // Setup our process with the executable and it's arguments
+    //        process = new System.Diagnostics.Process();
+    //        process.StartInfo = new System.Diagnostics.ProcessStartInfo(executable, arguments);
 
-        ClassB a;
+    //        // To get IO streams set use shell to false
+    //        process.StartInfo.UseShellExecute = false;
 
-        for (int i = 0; i < objs.Length; i++) {
-            Debug.LogWarning(objs[i].name + ", " + objs[i].GetType());
-            //Debug.Log(objs[i].GetType().FullName);
-            //Debug.Log(objs[i].GetType());
-            //Debug.Log(objs[i].GetType().AssemblyQualifiedName);
-        }
+    //        // If we want to return the output then redirect standard output
+    //        if (standardOutput) process.StartInfo.RedirectStandardOutput = true;
 
-        UnityEngine.Object chosenObject = objs[3];
-        Debug.Log(chosenObject.name + ", " + chosenObject.GetType());
-        Type chosenType = chosenObject.GetType();
-        MethodInfo methodInfo = chosenType.GetMethod("PrivateMethod1", BindingFlags.NonPublic | BindingFlags.Instance);
-        FieldInfo fieldInfo = chosenType.GetField("testClass", BindingFlags.Public | BindingFlags.Instance);
+    //        // If we std error or to throw on error then redirect error
+    //        if (standardError || throwOnError) process.StartInfo.RedirectStandardError = true;
 
+    //        // Run the process
+    //        process.Start();
 
+    //        // Get the standard error
+    //        if (standardError || throwOnError) standardErrorString = process.StandardError.ReadToEnd();
 
-        Debug.Log(fieldInfo);
+    //        //             // If we want to throw on error and there is an error
+    //        //             if (throwOnError & amp; &amp; !string.IsNullOrEmpty(standardErrorString))
+    //        //                 throw new Exception(
+    //        //                     string.Format("Error in ConsoleCommand while executing {0} with arguments {1}.",
+    //        //                     executable, arguments, Environment.NewLine, standardErrorString));
 
-        //System.Diagnostics.Process p;
-        //p.Start();
-        //Debug.Log(testa.FullName);
+    //        // If we want to return the output then get it
+    //        if (standardOutput) standardOutputString = process.StandardOutput.ReadToEnd();
 
+    //        // If we want standard error then append it to our output string
+    //        if (standardError) standardOutputString += standardErrorString;
 
-        Debug.Log(methodInfo);
-        MethodBody methodBody = methodInfo.GetMethodBody();
-        IList<LocalVariableInfo> localList = methodBody.LocalVariables;
-        for (int i = 0; i < localList.Count; i++) {
-            //Debug.Log(localList[i].ToString());
-            Debug.Log("Local Type: " + localList[i].LocalType);
-        }
+    //        // Wait for the process to finish
+    //        process.WaitForExit();
+    //    }
+    //    catch (Exception e) {
+    //        // Encapsulate and throw
+    //        throw new Exception(
+    //            string.Format("Error in ConsoleCommand while executing {0} with arguments {1}.", executable, arguments), e);
+    //    }
 
-        Debug.LogWarning("NOW doing getFIELDS");
-
-        // This ignores PRIVATE, but includes STATIC
-        //FieldInfo[] fields = chosenType.GetFields();
-        //foreach(FieldInfo field in fields) {
-        //    Debug.Log(field);
-        //}
-
-
-        FieldInfo[] fields2 = chosenType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static); // Includes all?
-                                                                                                                                                //FieldInfo[] fields2 = chosenType.GetFields(BindingFlags.Instance | BindingFlags.Public); // Does not include private, protected, or static
-                                                                                                                                                //FieldInfo[] fields2 = chosenType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); // Does not include static
-
-        // In lexical order
-        foreach (FieldInfo field in fields2) {
-            Debug.Log(field);
-        }
-
-        Debug.LogWarning("NOW doing getMETHODS");
-
-        //MethodInfo[] methods = chosenType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static); // Includes all?)
-        MethodInfo[] methods = chosenType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly); // ONLY base, target class (if derived, does not include inherited methods!!)
-        //TODO: Consider how to handle inherited methods, BUT exclude System, Unity, etc packages
-        //TODO: how to consider generic parameters?
-        foreach (MethodInfo method in methods) {
-            Debug.Log(method);
-            Debug.Log("Declaring type: " + method.DeclaringType);
-            //method.GetBaseDefinition(); // IF derived, overridden method, need to consider base implementation (if using base.Super() //lookup my lotb overides);
-            //method.GetGenericArguments(); // HOW to handle generics?
-            method.GetParameters();
-        }
-
-
-
-        //MAKE DERIVED / DERIVED / DERIVED CLASS...should changes be restricted just to the derived class? or, also base?
-
-
-        //Debug.Log(ScoreManager.score);
-        //Type[] uniqueObjects = (UnityEngine.Object[]) objs.Distinct();
-        //             Asdasd d = objs.Distinct();
-        //             for (int i = 0; i < uniqueObjects.Length; i++) {
-        //                 Debug.LogWarning(uniqueObjects[i].name);
-        //             }
-        // 
-        //             Debug.LogWarning(objs.Length);
-        //             Debug.LogWarning("OMG!!");
-
-        //         // Start the child process.
-        //         System.Diagnostics.Process p = new System.Diagnostics.Process();
-        //         // Redirect the output stream of the child process.
-        //         p.StartInfo.UseShellExecute = false;
-        //         p.StartInfo.RedirectStandardOutput = true;
-        //         //p.StartInfo.FileName = Config.GitExectuable;
-        //         //p.StartInfo.Arguments = command;
-        //         p.StartInfo.Arguments = "git log";
-        //         p.Start();
-        //         // Read the output stream first and then wait.
-        //         string output = p.StandardOutput.ReadToEnd();
-        //         p.WaitForExit();
-
-        //Debug.Log(Execute("C:/Program Files/Git/bin/git.exe", "version", true));
-        //Debug.Log(Execute("C:/Program Files/Git/bin/git.exe", "log --follow --format=full --stat --since 01-01-01 -p Source/My2DGame/Private/Animator.cpp", true));
-        //handle / to \
-        //Cannot be outside repository
-        //Debug.Log(Execute("C:/Program Files/Git/bin/git.exe", "log --follow --format=full --stat --since 01-01-01 -p D:/Unreal/MannequinProject/UnrealPractice/Source/My2DGame/Private/Animator.cpp", true));
-
-        //WORKS
-        //Debug.Log(Execute("C:/Program Files/Git/bin/git.exe", "log", true));
-
-        //var output = RunProcess(string.Format(" --git-dir={0}/.git --work-tree={1} log --name-status", path.Replace("\\", "/"), path.Replace("\\", "/")));
-    }
-
-    public static string Execute(string executable,
-        string arguments,
-        bool standardOutput = false,
-        bool standardError = false,
-        bool throwOnError = false) {
-        // This will be out return string
-        string standardOutputString = "standard output string";
-        string standardErrorString = "standard error string";
-
-        // Use process
-        System.Diagnostics.Process process;
-
-        try {
-            // Setup our process with the executable and it's arguments
-            process = new System.Diagnostics.Process();
-            process.StartInfo = new System.Diagnostics.ProcessStartInfo(executable, arguments);
-
-            // To get IO streams set use shell to false
-            process.StartInfo.UseShellExecute = false;
-
-            // If we want to return the output then redirect standard output
-            if (standardOutput) process.StartInfo.RedirectStandardOutput = true;
-
-            // If we std error or to throw on error then redirect error
-            if (standardError || throwOnError) process.StartInfo.RedirectStandardError = true;
-
-            // Run the process
-            process.Start();
-
-            // Get the standard error
-            if (standardError || throwOnError) standardErrorString = process.StandardError.ReadToEnd();
-
-            //             // If we want to throw on error and there is an error
-            //             if (throwOnError & amp; &amp; !string.IsNullOrEmpty(standardErrorString))
-            //                 throw new Exception(
-            //                     string.Format("Error in ConsoleCommand while executing {0} with arguments {1}.",
-            //                     executable, arguments, Environment.NewLine, standardErrorString));
-
-            // If we want to return the output then get it
-            if (standardOutput) standardOutputString = process.StandardOutput.ReadToEnd();
-
-            // If we want standard error then append it to our output string
-            if (standardError) standardOutputString += standardErrorString;
-
-            // Wait for the process to finish
-            process.WaitForExit();
-        }
-        catch (Exception e) {
-            // Encapsulate and throw
-            throw new Exception(
-                string.Format("Error in ConsoleCommand while executing {0} with arguments {1}.", executable, arguments), e);
-        }
-
-        // Return the output string
-        return standardOutputString;
-    }
-
-    public void Parser() {
-        //System.IO.TextReader readFile = new StreamReader("C:\\csharp.net-informations.txt");
-        //while (true) {
-        //    line = readFile.ReadLine();
-        //    if (line != null) {
-        //        MessageBox.Show(line);
-        //    }
-        //}
-        //readFile.Close();
-        //readFile = null;
-    }
-
-
-
+    //    // Return the output string
+    //    return standardOutputString;
+    //}
 }
