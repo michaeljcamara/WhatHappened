@@ -89,7 +89,7 @@ public class DependencyWindow : EditorWindow {
 
     
     void DrawBox() {
-
+         
         //**MOVE THIS TO ONGUI...CLICKED???
         List<string> keyNames = new List<string>(analyzer.dependencyTable.Count);
         foreach (Type t in analyzer.dependencyTable.Keys) {
@@ -200,7 +200,6 @@ public class DependencyWindow : EditorWindow {
         Rect classNode = new Rect(x, y, boxWidth, boxHeight);
 
         GUI.color = Color.cyan;
-
         //GUI.Box(classNode, type.Name);
         GUI.Box(classNode, type.Name, style); //incl style
         //GUI.Box(new Rect(0, 0, 100, 100), "SHSHSHS");

@@ -6,12 +6,12 @@ using UnityEngine;
 using System.Runtime.CompilerServices;
 using System.IO;
 using System.Text.RegularExpressions;
-using GitSharp;
+//using GitSharp; //TODO Rem to remove this dependency
 using System.Linq;
+using LibGit2Sharp;
 
 public class DependencyAnalyzer {
-    
-
+     
     //Comment here
     /* Multiline comment here*/
     /* Multilinne
@@ -99,8 +99,8 @@ public class DependencyAnalyzer {
     // Use this for initialization
     public DependencyAnalyzer() {
 
+        /*
         //GitSharp.Git.Status(new GitSharp.Commands.StatusCommand());
-
         GitSharp.Commands.StatusCommand status = new GitSharp.Commands.StatusCommand();
         //Repository repo = new Repository(status.ActualDirectory);
         //Repository repo = new Repository(status.GitDirectory);
@@ -137,7 +137,7 @@ public class DependencyAnalyzer {
         //Debug.LogWarning("**GIT VERSION: " + GitSharp.Git.Version);
         //GitSharp.Git.Status(new GitSharp.Commands.StatusCommand());
         //Debug.LogWarning("StatusResults: " + new GitSharp.Commands.StatusCommand().ActualDirectory); //StatusResults: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\.git
-
+        */
 
         dependencyTable = new Dictionary<Type, HashSet<Type>>();
         //Assembly ass = Assembly.LoadFrom("D:/User/Documents/CMPSC/600/SeniorThesisPrototype/Prototype/Assets/Scripts/DependencyAnalyzer.cs");
@@ -248,10 +248,33 @@ public class DependencyAnalyzer {
         }
 
         foreach(string typeString in typesAsStrings) {
-
+            //TODO figure out what return types from libgit2sharp diff/log are
         }
 
+        //using (var repo = new Repository("../../..")) {
         
+        using (var repo = new Repository("D:/User/Documents/CMPSC/600/SeniorThesisPrototype")) {
+            Debug.LogError("***REPO***: " + repo.Head.CanonicalName);
+            //var RFC2822Format = "ddd dd MMM HH:mm:ss yyyy K";
+
+            //foreach (Commit c in repo.Commits.Take(15)) {
+            //    Console.WriteLine(string.Format("commit {0}", c.Id));
+
+            //    if (c.Parents.Count() > 1) {
+            //        Console.WriteLine("Merge: {0}",
+            //            string.Join(" ", c.Parents.Select(p => p.Id.Sha.Substring(0, 7)).ToArray()));
+            //    }
+
+            //    Console.WriteLine(string.Format("Author: {0} <{1}>", c.Author.Name, c.Author.Email));
+            //    //Console.WriteLine("Date:   {0}", c.Author.When.ToString(RFC2822Format, CultureInfo.InvariantCulture));
+            //    Console.WriteLine();
+            //    Console.WriteLine(c.Message);
+            //    Console.WriteLine();
+            //}
+        }
+
+
+
     }
 
     private List<string> GetTypeStringInFile(FileInfo file) {
