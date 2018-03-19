@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 using System.IO;
 using System.Text.RegularExpressions;
 //using GitSharp; //TODO Rem to remove this dependency
-using System.Linq;
+using System.Linq; //TODO any way to avoid "using system.linq" for just this one extension method? other way to do
 using LibGit2Sharp;
 
 public class DependencyAnalyzer {
@@ -152,7 +152,7 @@ public class DependencyAnalyzer {
 
         
 
-        //Debug.Log(Assembly.GetEntryAssembly().GetFiles());
+        Debug.Log(Assembly.GetEntryAssembly());
         Debug.Log(Assembly.GetExecutingAssembly().GetFiles().Length);
         Debug.Log(Assembly.GetExecutingAssembly().GetFiles()[0].Name); //D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Library\ScriptAssemblies\Assembly-CSharp.dll
 
@@ -253,8 +253,139 @@ public class DependencyAnalyzer {
 
         //using (var repo = new Repository("../../..")) {
         
+        // TODO generalize this repo path
         using (var repo = new Repository("D:/User/Documents/CMPSC/600/SeniorThesisPrototype")) {
             Debug.LogError("***REPO***: " + repo.Head.CanonicalName);
+            foreach(var a in repo.Head.Commits) { // First element is MOST RECENT, last is the initial commit
+                Debug.LogWarning("Commit message: " + a.Message); //Switched back to .NET 4.6 to allow use of LibGit2Sharp package (previous GitSharp package did not offer enough functionality)
+                //Debug.LogWarning("Short message: " + a.MessageShort); // same for me
+                //Debug.LogWarning("Commit message: " + a.Notes);
+                Debug.LogWarning("Author" + a.Author); // Michael Camara <michaeljcamara@gmail.com>
+            }
+
+            Debug.LogError("--------------");
+            //var RFC2822Format = "ddd dd MMM HH:mm:ss yyyy K";
+
+            //foreach (Commit c in repo.Commits.Take(15)) {
+            //    Debug.LogWarning(string.Format("commit {0}", c.Id)); //ea1e4c91e2785f5a7b4569163c2a42842cdde730
+
+            //    //Figure out these merge commits, ugh
+            //    if (c.Parents.Count() > 1) {
+            //        Debug.LogWarning("Merge: " + 
+            //            string.Join(" ", c.Parents.Select(p => p.Id.Sha.Substring(0, 7)).ToArray()));
+            //    }
+
+            //    Debug.LogWarning(string.Format("Author: {0} <{1}>", c.Author.Name, c.Author.Email)); //Michael Camara <michaeljcamara@gmail.com>
+            //    Debug.LogWarning("Date: " + c.Author.When.ToString(RFC2822Format, System.Globalization.CultureInfo.InvariantCulture)); //Tue 13 Mar 19:49:14 2018 -04:00
+            //    Debug.LogWarning(c.Message);
+            //}
+
+            //repo.Head.Tip.Parents.SingleOrDefault<GitObject>(); // singleOrDefault<T> return default init of T, eg null. Single can throw exception
+
+            foreach (Commit commit in repo.Commits) {
+                foreach (var parent in commit.Parents) {
+                    Debug.LogWarning(commit.Sha + " : " + commit.MessageShort);
+                    foreach (TreeEntryChanges change in repo.Diff.Compare<TreeChanges>(parent.Tree,
+                    commit.Tree)) {
+                        Debug.LogWarning(change.Status + " : " + change.Path);
+                    }
+                }
+            }
+
+            Debug.LogError("--------------");
+
+            string result = "-nothing-";
+            //Path relative to where local .git directory stored, e.g. "." is D:/User/Documents/CMPSC/600/SeniorThesisPrototype
+            string relPath = "Prototype/Assets/Scripts/DependencyAnalyzer.cs"; // Get path from individual file as iterating? FileInfo
+            Debug.LogError("Full path: " + Path.GetFullPath("."));    
+            List<Commit> CommitList = new List<Commit>();
+            foreach (LogEntry entry in repo.Commits.QueryBy(relPath).ToList())
+                CommitList.Add(entry.Commit);
+            //CommitList.Add(null); // Added to show correct initial add
+              
+            // Commits in which this file was modified
+            Debug.LogError("CommitList Count: " + CommitList.Count);  
+            foreach(Commit c in CommitList) {
+                Debug.Log("Commit where changed: " + c.Message);
+            }
+
+            // General diff all paths
+            TreeChanges treeChanges = repo.Diff.Compare<TreeChanges>();
+            Patch patch = repo.Diff.Compare<Patch>();
+
+            // THIS narrows to SPECIFIC file (or, possibly, directory)
+            List<string> stringPaths = new List<string>();
+            stringPaths.Add(relPath);
+            //TreeChanges treeChanges = repo.Diff.Compare<TreeChanges>(stringPaths);
+            //Patch patch = repo.Diff.Compare<Patch>(stringPaths);
+
+            
+            
+            //GitObject a1, b1;
+            //ContentChanges cc = repo.Diff.Compare(a1, b1);
+            //ContentChanges ccc = repo.Diff.Compare((Blob) repo.Head.Tip.Tree[""].Target, (Blob) repo.Head.Tip.Tree[""].Target);
+            //ccc.Patch; // STRING, maybe the whole diff comparison with +++/---???
+
+            Debug.LogError("TARGET BLOB: " + CommitList[0].Tree[relPath].Target);  // 3a8a48js8dh8a489ha48h9
+            Debug.LogError("TARGET BLOB: " + CommitList[1].Tree[relPath].Target);  // 3a8a48js8dh8a489ha48h9    
+
+            Blob firstBlob = (Blob) CommitList[0].Tree[relPath].Target;
+            Blob secondBlob = (Blob) CommitList[1].Tree[relPath].Target;
+
+            ContentChanges changes = repo.Diff.Compare(firstBlob, secondBlob);
+            string stringPatch = changes.Patch;
+            Debug.LogError("THE PATCH: " + stringPatch);
+
+            // Get working tree
+            //Repo path: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\.git\, WorkingDir: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\
+            Debug.LogError("Repo path: " + repo.Info.Path + ", WorkingDir: " + repo.Info.WorkingDirectory);
+
+            
+
+            //TODO how to change hunks, just solid block of text would be easier??? instead of @@-93,+34@@
+            //NOTE ORDER of blobs makes no difference
+            //ContentChanges reverseChanges = repo.Diff.Compare(secondBlob, firstBlob);
+            //string reverseStringPatch = changes.Patch;
+            //Debug.LogError("REVERSE PATCH: " + reverseStringPatch);
+            /*
+             * THE PATCH: @@ -6,12 +6,12 @@ using UnityEngine;
+             using System.Runtime.CompilerServices;
+             using System.IO;
+             using System.Text.RegularExpressions;
+            -//using GitSharp; //TODO Rem to remove this dependency
+            +using GitSharp;
+             * 
+             */
+
+            foreach (TreeEntryChanges change in treeChanges) {
+                Debug.Log("TREE Change: " + change.Status + " : " + change.Path + " : " + change);
+            }
+
+            foreach (PatchEntryChanges change in patch) {
+                 
+                Debug.Log("PATCH Change: " + change.Status + " : " + change.Path + " : " + change.LinesAdded + ";" + change.LinesDeleted + " : " + change);
+            }
+
+
+
+
+            //int ChangeDesired = 0; // Change difference desired
+            //var repoDifferences = repo.Diff.Compare<Patch>((Equals(CommitList[ChangeDesired + 1], null)) ? null : CommitList[ChangeDesired + 1].Tree, (Equals(CommitList[ChangeDesired], null)) ? null : CommitList[ChangeDesired].Tree);
+            //PatchEntryChanges file = null;
+            //try { file = repoDifferences.First(e => e.Path == relPath); }
+            //catch { } // If the file has been renamed in the past- this search will fail
+            //if (!Equals(file, null)) {
+            //    result = file.Patch;
+            //}
+
+            //Debug.LogError("THE RESULT: " + result);
+
+
+
+
+            //foreach(IQueryableCommitLog comm in repo.Commits) {
+            //    Debug.LogWarning("Some Commit: " + comm.ToString());
+            //}
             //var RFC2822Format = "ddd dd MMM HH:mm:ss yyyy K";
 
             //foreach (Commit c in repo.Commits.Take(15)) {
@@ -328,7 +459,7 @@ public class DependencyAnalyzer {
         //TEST LINE COMMENT
         string testLineComment = "string a = something;//then other stuff*/\nOn next line";
         testLineComment = lineCommentRegex.Replace(testLineComment, "");
-        Debug.LogError("TEST LINE: " + testLineComment);
+        Debug.LogWarning("TEST LINE: " + testLineComment);
 
         //TEST BLOCK COMMENT
         string testBlockText = "TestEscape\\nThis is a /* first testEscape\\n \nblock \n\n\n " +
@@ -337,12 +468,12 @@ public class DependencyAnalyzer {
             Debug.Log("**Num newlines: " + m.Groups["newline"].Captures.Count);
         }
         testBlockText = blockCommentRegex.Replace(testBlockText, "-REPLACED-");
-        Debug.LogError("BLOCK TEST: " + testBlockText);
+        Debug.LogWarning("BLOCK TEST: " + testBlockText);
 
         //TEST STRING
         string testStringText = "TestEscape\\\"Again\\\"OUT1\"First \"    " + "OUT2\"second \"" + "OUT3\"third.\"___OUT55";     
         testStringText = stringRegex.Replace(testStringText, "");
-        Debug.LogError(testStringText);
+        Debug.LogWarning(testStringText);
 
         //REPLACE FILE CONTENTS
 
@@ -352,6 +483,8 @@ public class DependencyAnalyzer {
         text = blockCommentRegex.Replace(text, delegate(Match m) {
 
             Debug.Log("Curr match = " + m.Value);
+
+            //TODO any way to avoid "using system.linq" for just this one extension method? other way to do
             int numNewlines = m.Value.Count(x => x == '\n');
             Debug.Log("**Num newlines: " + numNewlines);
             System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder("");
@@ -378,7 +511,7 @@ public class DependencyAnalyzer {
 
         text = lineCommentRegex.Replace(text, "");
 
-        Debug.LogError("TEXT: " + text);
+        Debug.LogWarning("TEXT: " + text);
 
         System.Text.StringBuilder fileString = new System.Text.StringBuilder("");
         using (StringReader reader = new StringReader(text)) {
@@ -391,7 +524,7 @@ public class DependencyAnalyzer {
             }
         }
 
-        Debug.LogError("NEW TEXT: " + fileString.ToString());
+        Debug.LogWarning("NEW TEXT: " + fileString.ToString());
 
 
         //How to handle if / used in both // and /**/
@@ -416,7 +549,7 @@ public class DependencyAnalyzer {
         Regex classRegex = new Regex(classPattern, RegexOptions.IgnorePatternWhitespace);
         string testClassString = "something class SomeClass {}\n something class SomeClass2{}";
         //testClassString = classRegex.Replace(testClassString, "-REPLACED-");
-        Debug.LogError("TEST CLASS: " + testClassString);
+        Debug.LogWarning("TEST CLASS: " + testClassString);
 
         // Rem might need to trim classes
         foreach(Match m in classRegex.Matches(testClassString)) {
