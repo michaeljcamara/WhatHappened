@@ -87,7 +87,15 @@ public class DependencyWindow : EditorWindow {
         m_backgroundRect = new Rect(0, 0, 500, 500);
     }
 
-    
+    private class asd {
+        string ToString() {
+            return "1";
+        }
+
+        public int pubVar;
+
+    };
+
     void DrawBox() {
          
         //**MOVE THIS TO ONGUI...CLICKED???
@@ -97,7 +105,10 @@ public class DependencyWindow : EditorWindow {
         }
 
         index = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Root:", index, keyNames.ToArray());
-        //Assembly assembly = Assembly.GetExecutingAssembly();
+
+        //List<asd> someList = new List<asd>(5);
+        //string[] newArray = Array.ConvertAll<asd, string>(someList.ToArray(), item => (string) item.ToString()); // USE THIS
+        
 
         Assembly assembly = analyzer.assembly;
         Type chosenType = assembly.GetType(keyNames[index]);
