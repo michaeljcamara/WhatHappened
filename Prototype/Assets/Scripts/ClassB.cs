@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class ClassB : MonoBehaviour {
 
+    //TODO WHAT ABOUT INTERFACES?? (clas | interfac) during regex?
     public int publicInt;
     public float publicFloat;
     public ClassC publicCLassC;
@@ -40,19 +41,42 @@ public class ClassB : MonoBehaviour {
     static protected double staticProtectedDouble;
     static protected string staticProtectedString;
     static protected ClassC staticProtectedClassC;
+    //TODO rem spacing after brackets braces optional
+    Dictionary<Dictionary<System.Text.StringBuilder, System.Text.StringBuilder[,,,]>, Dictionary<System.Text.StringBuilder[][][], List<System.Text.StringBuilder[][]>>> CrazyMethod(Dictionary<Dictionary<System.Text.StringBuilder, System.Text.StringBuilder[,,,]>, Dictionary<System.Text.StringBuilder[][][], List<System.Text.StringBuilder[][]>>> Arguments) { return null; }
+    int[][] TwoDArrayInts(int[][] someInts) { return null; }
+    int[,] TwoDArrayInts2(int[,] someInts) { return null; }
+    int[][][] ThreeDArrayInts(int[][][] someInts) { return null; }
+    int[,,] ThreeDArrayInts2(int[,,] someInts) { return null; }
+    List<int> ListOfInts2(List<int> someInts2) { return null; }
+    Dictionary<List<int>, Dictionary<List<int>, List<int>>> DictOfLists () { return null; }
+    List<List<int>> ListOfLists(List<List<int>> someInts) { return null; }
+    List<List<System.Text.StringBuilder>> ListOfListsBuilders (List<List<System.Text.StringBuilder>>someBuilders) { return null; }
 
-    
+    System.Text.StringBuilder HasParameters(string someString, ClassC someClass, int someInt, System.Text.StringBuilder someBuilder) {
+        System.Text.StringBuilder testBuilder = new System.Text.StringBuilder("");
+
+        return testBuilder;
+    }
+
+    //*TEST WITH ARRAYS< LISTS< GENERICS< ETC
+
+    List<int> ListOfInts(List<int> someInts) { return null; }
+    List<System.Text.StringBuilder> ListOfStringBuilders(List<System.Text.StringBuilder> someStringBuilders) { return null; }
+    int[] ArrayOfInts(int[] someInts) { return null; }
+    System.Text.StringBuilder[] ArrayOfStringBuilders(System.Text.StringBuilder[] someStringBuilders) { return null; }
 
 
-	// Use this for initialization
-	void Start () {
-		
+    // Use this for initialization
+    void Start () {
+        DependencyAnalyzer analyzer = new DependencyAnalyzer();
 	}
 	
 	// Update is called once per frame
 	void Update () {
 		
 	}
+
+    //todo overloaded methods
 
     public void PublicMethod1() {
         int localInt;
@@ -63,4 +87,38 @@ public class ClassB : MonoBehaviour {
         int localInt;
         float localFloat;
     }
+    
+    private class anotherClass1 
+        
+        {
+        private int nestedInt;
+    }
+
+    private class
+
+        anotherClass2 {
+
+    }
+
+    static
+
+    void
+
+        someMethod
+
+        (
+        
+        ) 
+        
+        {
+        int a;if
+            (true
+            ) {
+
+        }
+    }     
+}
+
+public class OutsideClassB {
+
 }
