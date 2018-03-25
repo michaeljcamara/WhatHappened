@@ -48,9 +48,9 @@ public class ClassB : MonoBehaviour {
     int[][][] ThreeDArrayInts(int[][][] someInts) { return null; }
     int[,,] ThreeDArrayInts2(int[,,] someInts) { return null; }
     List<int> ListOfInts2(List<int> someInts2) { return null; }
-    Dictionary<List<int>, Dictionary<List<int>, List<int>>> DictOfLists () { return null; }
+    Dictionary<List<int>, Dictionary<List<int>, List<int>>> DictOfLists() { return null; }
     List<List<int>> ListOfLists(List<List<int>> someInts) { return null; }
-    List<List<System.Text.StringBuilder>> ListOfListsBuilders (List<List<System.Text.StringBuilder>>someBuilders) { return null; }
+    List<List<System.Text.StringBuilder>> ListOfListsBuilders(List<List<System.Text.StringBuilder>> someBuilders) { return null; }
 
     System.Text.StringBuilder HasParameters(string someString, ClassC someClass, int someInt, System.Text.StringBuilder someBuilder) {
         System.Text.StringBuilder testBuilder = new System.Text.StringBuilder("");
@@ -64,6 +64,23 @@ public class ClassB : MonoBehaviour {
     List<System.Text.StringBuilder> ListOfStringBuilders(List<System.Text.StringBuilder> someStringBuilders) { return null; }
     int[] ArrayOfInts(int[] someInts) { return null; }
     System.Text.StringBuilder[] ArrayOfStringBuilders(System.Text.StringBuilder[] someStringBuilders) { return null; }
+
+    private class NestedClass1 {
+        private class NestedClass1_1 {
+            private class NestedClass1_1_1 {
+                void SuperNestedMethod() {
+
+                }
+            }
+        }
+        private class NestedClass1_2{
+            private class NestedClass1_2_1 {
+                void SuperNestedMethod() {
+
+                }
+            }
+        }
+    }
 
 
     // Use this for initialization
@@ -92,6 +109,9 @@ public class ClassB : MonoBehaviour {
         
         {
         private int nestedInt;
+        private class NestedInAnotherClass {
+
+        }
     }
 
     private class
