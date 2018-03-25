@@ -24,7 +24,7 @@ public class DependencyAnalyzer {
 
         foreach (FieldInfo field in fields) {
             types.Add(field.FieldType);
-            Debug.Log("In GetFieldDeps, cur field = " + field + ", name = " + field.Name + ", fieldType = " + field.FieldType); //In GetFieldDeps, cur field = System.String authorOfChange, fieldType = System.String
+            //Debug.Log("In GetFieldDeps, cur field = " + field + ", name = " + field.Name + ", fieldType = " + field.FieldType); //In GetFieldDeps, cur field = System.String authorOfChange, fieldType = System.String
         }
 
         return types;
@@ -74,7 +74,7 @@ public class DependencyAnalyzer {
         Type[] types = assembly.GetTypes();
         for (int i = 0; i < types.Length; i++) {
             Type currentType = types[i];
-            Debug.Log("CurrentType: " + currentType);
+            //Debug.Log("CurrentType: " + currentType);
 
             HashSet<Type> dependencySet = new HashSet<Type>();
 
@@ -92,7 +92,8 @@ public class DependencyAnalyzer {
             //    Debug.Log("Type name: " + type.Name + ", namespace: " + type.Namespace); //CustomType, namespace: 
             //    //Debug.LogWarning(type.GetMethod("LogTest",BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
             //}
-            Debug.LogError("Type name: " + currentType.Name + ", fullname: " + currentType.FullName + ", isNested(has+): " + currentType.IsNested + ", namespace: " + currentType.Namespace); //Type name: anotherClass1, fullname: ClassB+anotherClass1, isNested(has+): True, namespace: // NEWWW
+
+            //Debug.LogError("Type name: " + currentType.Name + ", fullname: " + currentType.FullName + ", isNested(has+): " + currentType.IsNested + ", namespace: " + currentType.Namespace); //Type name: anotherClass1, fullname: ClassB+anotherClass1, isNested(has+): True, namespace: // NEWWW
             
             customTypeLookup.Add(currentType.Name, new CustomType(currentType)); //NEWW
 
@@ -228,7 +229,7 @@ public class DependencyAnalyzer {
         //}
     }
 
-    private List<string> GetTypeStringInFile(FileInfo file) {
+    private string GetTypeStringInFile(FileInfo file) {
 
         /* Goals for parsing files
          * Isolate CLASSES (or broadly Types) within file, so we can link files in Git with types in Assembly
@@ -318,35 +319,21 @@ public class DependencyAnalyzer {
 
         Debug.LogWarning("TEXT: " + text);
 
-        System.Text.StringBuilder fileString = new System.Text.StringBuilder("");
-        using (StringReader reader = new StringReader(text)) {
-            string line;
-            int lineNum = 1;
-            while ((line = reader.ReadLine()) != null) {
-                //line.Insert(0, lineNum.ToString());
-                fileString.Append(lineNum.ToString() + line + "\n");
-                lineNum++;
-            }
-        }
-        Debug.LogWarning("NEW TEXT: " + fileString.ToString());
+        //TODO Revisit if MORE EFFICIENT to append line numbers to help with line number calculation later in regexs...if dont need backtrack, more performant?
+        //System.Text.StringBuilder fileString = new System.Text.StringBuilder("");
+        //using (StringReader reader = new StringReader(text)) {
+        //    string line;
+        //    int lineNum = 1;
+        //    while ((line = reader.ReadLine()) != null) {
+        //        //line.Insert(0, lineNum.ToString());
+        //        fileString.Append(lineNum.ToString() + line + "\n");
+        //        lineNum++;
+        //    }
+        //}
+        //Debug.LogWarning("NEW TEXT: " + fileString.ToString());
 
-        List<string> classStrings = new List<string>();
-        string classPattern = @"(?<=\b class .*?)(?<class>\w+) (?=\s*?{)";
-        Regex classRegex = new Regex(classPattern, RegexOptions.IgnorePatternWhitespace);
-        string testClassString = "something class SomeClass {}\n something class SomeClass2{}";
-        //testClassString = classRegex.Replace(testClassString, "-REPLACED-");
-        Debug.LogWarning("TEST CLASS: " + testClassString);
-
-        // Rem might need to trim classes
-        foreach (Match m in classRegex.Matches(testClassString)) {
-            foreach (Capture c in m.Groups["class"].Captures) {
-                Debug.Log("Captured class: " + c);
-                classStrings.Add(c.Value);
-            }
-        }
-
-        AnalyzeFile(file);
-        return classStrings;
+        return text;
+        //return fileString.ToString();
     }
 
     // ALL BELOW IS NEW
@@ -359,7 +346,7 @@ public class DependencyAnalyzer {
 
     private void AnalyzeFile(FileInfo file) {
 
-        //TODO add this to instance vars in original class
+        //TODO REMOVE COMMENTS ETC FIRST!!
 
 
         //TEMP
@@ -373,46 +360,71 @@ public class DependencyAnalyzer {
 
         Debug.LogError("**STARTING FILE: " + file.Name);
 
-        string text = File.ReadAllText(file.FullName);
+        //string text = File.ReadAllText(file.FullName);
+        string text = GetTypeStringInFile(file);
         string[] textByLine = File.ReadAllLines(file.FullName);
-        //Debug.LogError("Num lines in _" + file.Name + "= " + textByLine.Length);
 
         List<string> classStrings = new List<string>();
-        string classPattern = @"(?<leading>.*?)(?<=\bclass\s+)(?<class>\w+\b) (?=.*{)"; // TODO OR with interface
-        //string classPattern = @"(?<leading>.*?)(?<=\bclass\s+)(?<class>\w+\b) (?=.*{)(?<therest>.*$)"; // just grabs first class, since everything included in match
+        //string classPattern = @"(?<leading>.*?)(?<=\bclass\s+)(?<class>\w+\b) (?=.*{)"; // TODO OR with interface // REM NEED replace \w to also include #s and _
+        //string classPattern = @"(?<leading>^.*?)(\bclass\s+)(?<class>\w+\b)(?=[^{]*?{)"; // TODO this limits backtracking, 1000x faster, but won't catch nested/outside classes
+        //string classPattern = @"(?<leading>(.*?)(\n)??)(\bclass\s+)(?<class>\w+\b)(?=[^{]*?{)"; // 17 sec
+        //string classPattern = @"(?<leading>.*?\n??)(\bclass\s+)(?<class>\w+\b)(?=[^{]*?{)"; // 14 sec
+        //string classPattern = @"(?<leading>.*?\n??)\bclass\s+(?<class>\w+\b)(?=[^{]*?{)"; // 13 sec
+        //string classPattern = @"(?<leading>.*?\n??)\b(?:class|interface)\s+?(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // 13.5 sec
+        //string classPattern = @"(?>.*)\b(?:class|interface)\s+?(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // 2 sec!!!
+        //string classPattern = @"(?>(?<leading>.*?\n??))\b(?:class|interface)\s+?(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // 2 sec!!! // WRONG LEADING, misses linenum
+
+        //string classPattern = @"(?<leading>.*?)\b(?:class|interface)\s+?(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // 8 sec, WORKS!!!
+        //string classPattern = @"(?<leading>.*?)\b(?:class|interface)\s+?(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // 8 sec, WORKS!!!
+        //string classPattern = @"(?<leading>.*?)\b(?:class|interface)\s+?(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // 8 sec, WORKS!!!
+
+        //string classPattern = @"\b(?:class|interface)\s+?(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // 8 sec, WORKS!!!
+        string classPattern = @"\b(?:class|interface)(?:\s+?)(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // 8 sec, WORKS!!!
+
+        //Regex classRegex = new Regex(classPattern, RegexOptions.IgnorePatternWhitespace );
+        //Regex classRegex = new Regex(classPattern, RegexOptions.Multiline);
+
         Regex classRegex = new Regex(classPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Singleline);
-        string testClassString = "something class SomeClass {}\n something class SomeClass2{}";
-        //testClassString = classRegex.Replace(testClassString, "-REPLACED-");
-        //Debug.LogWarning("TEST CLASS: " + testClassString);
-
-        //TODO AFTER WAKEUP 3-24. Include private classes, or no? extents of additions needed to do this...
-        // Also, recursive inclusion of generic arguments in custommethod
-        //TODO ALSO what about 2d,3d,4d array?? [,] [,,] [][][][][][]
-
+        //Regex classRegex = new Regex(classPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Singleline | RegexOptions.Multiline);
         int currentLineNum = 1; // +1 since the leading text does not capture the \n from the current line
-        //Debug.LogError("Now iterating class matches");
+        //classRegex.Match();
+        //Match m; m.Index;
+        int currentIndex = 0, currentLength = 0;
+
         foreach (Match classMatch in classRegex.Matches(text)) {
             Debug.Log("Current match: " + classMatch);
-            Debug.Log("LEADING CAPTURE: " + classMatch.Groups["leading"].Captures[0]);
-            currentLineNum += classMatch.Groups["leading"].Captures[0].Value.Count(x => x == '\n');
+            Debug.LogError("INDEX: " + classMatch.Index);
+
+            //Debug.Log("LEADING CAPTURE: " + classMatch.Groups["leading"].Captures[0]);
+            //Debug.Log("LEADING CAPTURE: " + classMatch.Groups[0].Captures[0]);
+            //currentLineNum += 1;
+
+            //currentLineNum += classMatch.Groups["leading"].Captures[0].Value.Count(x => x == '\n');
+
+            //currentLineNum += text.Substring(currentLineNum - 1, classMatch.Index).Count(x => x == '\n');
+            //currentLineNum += text.Substring(currentIndex, classMatch.Index + classMatch.Length).Count(x => x == '\n');
+            currentLineNum += text.Substring(currentIndex, classMatch.Index-currentIndex).Count(x => x == '\n');
+            currentIndex = classMatch.Index;
+            currentLength = classMatch.Length;
 
             //TODO Handle namespace conflicts
             string classString = classMatch.Groups["class"].Captures[0].Value;
-            Debug.Log("Captured class: " + classString);
+            //Debug.Log("Captured class: " + classString);
             CustomType targetType;
-            if(!customTypeLookup.TryGetValue(classString, out targetType)) {
+            if (!customTypeLookup.TryGetValue(classString, out targetType)) {
                 Debug.LogError("Could not find " + classString + " in customTypeLookup");
             }
 
             //TODO how to handle private classes, with names as ClassB+anotherClass1
             targetType.startLineNum = currentLineNum;
 
-            for(int i = targetType.startLineNum - 1, numOpenBraces = 0, numClosedBraces = 0; i < textByLine.Length && targetType.endLineNum == 0; i++) {
-                foreach(char c in textByLine[i]) {
-                    if(c == '{') {
+            //RENABLE
+            for (int i = targetType.startLineNum - 1, numOpenBraces = 0, numClosedBraces = 0; i < textByLine.Length && targetType.endLineNum == 0; i++) {
+                foreach (char c in textByLine[i]) {
+                    if (c == '{') {
                         numOpenBraces++;
                     }
-                    else if(c == '}') {
+                    else if (c == '}') {
                         numClosedBraces++;
                     }
 
@@ -428,35 +440,40 @@ public class DependencyAnalyzer {
                 Debug.LogError("Could not find end line number for " + classString);
             }*/
 
-            Debug.Log("StartLineNum = " + targetType.startLineNum + ", EndLineNum = " + targetType.endLineNum);
-            Debug.Log("How many methods in " + targetType + ": " + targetType.methods.Count);
+            Debug.LogError("Class matched: " + classString + ", StartLineNum = " + targetType.startLineNum + ", EndLineNum = " + targetType.endLineNum);
+            //Debug.Log("How many methods in " + targetType + ": " + targetType.methods.Count);
             //Now find start/end of each method in each class using regex patterns
             int numMatchesFound = 0;
+
+            //TODO EDIT
+            int lineBeforeMethods = currentLineNum;
+
             foreach (CustomMethod method in targetType.GetMethods()) {
-                Debug.Log("Looking for method: " + method.info);
+                //Debug.Log("Looking for method: " + method.info);
                 Regex methodRegex = method.regex;
-                Debug.Log("Regex is: " + methodRegex.ToString());
+                //Debug.Log("Regex is: " + methodRegex.ToString());
 
 
                 //TODO should only need one match
 
                 //foreach (Match methodMatch in methodRegex.Matches(text)) {
                 Match methodMatch = methodRegex.Match(text);
-                if(methodMatch.Success) {
-                    Debug.Log("Found match: " + methodMatch);
-
-                    Debug.LogWarning("    Method Signature: " + methodMatch.Groups["methodSig"].Captures[0].Value);
+                if (methodMatch.Success) {
+                    //Debug.Log("Found match: " + methodMatch);
+                    //Debug.LogWarning("    Method Signature: " + methodMatch.Groups["methodSig"].Captures[0].Value);
                     numMatchesFound++;
                 }
                 else {
                     Debug.LogError("!!DID NOT FIND: " + method.info.Name);
                 }
 
-                Debug.LogWarning("Leading: " + methodMatch.Groups["leading"].Captures[0].Value);
+                //Debug.LogWarning("Leading: " + methodMatch.Groups["leading"].Captures[0].Value);
 
                 //Now get start and end method line numbers
                 //TODO instead of going back to start of class declaration each time, start at end of previous method signature match
                 //currentLineNum += methodMatch.Groups["leading"].Captures[0].Value.Count(x => x == '\n');
+                
+                //TODO CHANGE THIS WITH SUBSTRING METHOD?
                 currentLineNum = targetType.startLineNum + methodMatch.Groups["leading"].Captures[0].Value.Count(x => x == '\n');
 
                 method.startLineNum = currentLineNum;
@@ -477,27 +494,30 @@ public class DependencyAnalyzer {
                     }
                 }
 
-                /* RENABLE!
                 if (method.endLineNum == 0) {
                     Debug.LogError("Could not find end line number for " + method.info.Name);
                 }
                 else {
-                    Debug.LogError("Start/End Line Nums for " + method.info.Name + ": " + method.startLineNum + ", " + method.endLineNum);
-                }*/
+                    //Debug.LogError("Start/End Line Nums for " + method.info.Name + ": " + method.startLineNum + ", " + method.endLineNum);
+                    Debug.LogError("    Method matched: " + method.info.Name + ", StartLineNum = " + method.startLineNum + ", EndLineNum = " + method.endLineNum);
+                }
 
 
             }
+
+            currentLineNum = lineBeforeMethods;
 
             if (numMatchesFound == targetType.methods.Count) {
-                Debug.LogError("**FOUND ALL METHODS IN " + targetType + ": " + numMatchesFound + " out of " + targetType.methods.Count);
+                    Debug.LogError("**FOUND ALL METHODS IN " + targetType + ": " + numMatchesFound + " out of " + targetType.methods.Count);
+
+                }
+                else {
+                    Debug.LogError("!!DID NOT FIND ALL METHODS IN " + targetType + ": " + numMatchesFound + " out of " + targetType.methods.Count);
+                }
+
 
             }
-            else {
-                Debug.LogError("!!DID NOT FIND ALL METHODS IN " + targetType + ": " + numMatchesFound + " out of " + targetType.methods.Count);
-            }
-
-
-        }
+        //END RENABLE
 
         ////string classPattern = @"(?<leading>.*?)(?<=\bclass\s+)(?<class>\w+\b) (?=.*{)(?<therest>.*$)";
         ////                [^{}]*(((?'Open'{)[^{}]*)+((?'Close-Open'})[^{}]*)+)*(?(Open)(?!))"; // This kinda works, no leading, still includes OuterClass in match (separate capture)
@@ -573,12 +593,12 @@ public class DependencyAnalyzer {
 
         // Rem might need to trim classes
         //foreach (Match m in classRegex.Matches(testClassString)) {
-        foreach (Match m in classRegex.Matches(text)) {
-            foreach (Capture c in m.Groups["class"].Captures) {
-                Debug.Log("Captured class: " + c);
-                classStrings.Add(c.Value);
-            }
-        }
+        //foreach (Match m in classRegex.Matches(text)) {
+        //    foreach (Capture c in m.Groups["class"].Captures) {
+        //        //Debug.Log("Captured class: " + c);
+        //        classStrings.Add(c.Value);
+        //    }
+        //}
 
     }
 

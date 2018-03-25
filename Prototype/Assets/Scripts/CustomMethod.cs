@@ -58,7 +58,7 @@ public class CustomMethod {
 
         //// using .*? to allow for namespace specifiers, eg Michael.Classb vs ClassB. ALSO for generics, List<TypeHere> name
 
-        Debug.Log("Full Method Pattern: " + methodPattern);
+        //Debug.Log("Full Method Pattern: " + methodPattern);
 
         Regex methodRegex = new Regex(methodPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Singleline);
 
@@ -72,7 +72,7 @@ public class CustomMethod {
     /// </summary>
     private string SimplifyTypeName(Type primitive) {
 
-        Debug.Log("Type being converted is: " + primitive + ", namespace is: " + primitive.Namespace + ", name is : " + primitive.Name);
+        //Debug.Log("Type being converted is: " + primitive + ", namespace is: " + primitive.Namespace + ", name is : " + primitive.Name);
         //Type being converted is: System.Collections.Generic.List`1[CustomMethod], namespace is: System.Collections.Generic, name is : List`1
 
         //Debug.Log("Generic: " + primitive.IsGenericParameter + ", " + primitive.IsGenericType + ", " + primitive.IsGenericTypeDefinition +
@@ -136,7 +136,7 @@ public class CustomMethod {
                 startName = "ushort";
                 break;
             default:
-                Debug.Log(primitive + " is not a primitive type.");
+                //Debug.Log(primitive + " is not a primitive type.");
                 break;
         }
 
