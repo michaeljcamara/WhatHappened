@@ -23,7 +23,9 @@ public class CustomType {
     public string authorOfChange;
     public float impactStrength;
 
-    public int startLineNum, endLineNum;
+    public int startLineNum;//START is where "class" appears in code, as in "class CustomType"
+    public int endLineNum;  //END is where last closing brace is '}'
+
     public List<CustomMethod> methods;
     
 

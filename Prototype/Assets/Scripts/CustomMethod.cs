@@ -54,7 +54,16 @@ public class CustomMethod {
 
         //string methodPattern = @"(?<=\bclass\s+" + info.DeclaringType.Name + @"\b) (?<leading>.*?)(?<methodSig>" + simplifiedReturnType + @"\s+?" + info.Name + @"\s*?\(" + paramBuilder.ToString() + @"\s*?\))\s*?{";
         //string methodPattern = @"(?<=\bclass\s+" + info.DeclaringType.Name + @"\b) (?<leading>.*?)(?<methodSig>" + simplifiedReturnType + @".+?" + info.Name + @"\s*?\(" + paramBuilder.ToString() + @"\s*?\))\s*?{";  // did .+? after return type to consider generics <...stuff here> but now dont need?
-        string methodPattern = @"(?<=\bclass\s+" + info.DeclaringType.Name + @"\b) (?<leading>.*?)(?<methodSig>" + simplifiedReturnType + @"\s+?" + info.Name + @"\s*?\(" + paramBuilder.ToString() + @"\s*?\))\s*?{"; //Now having converted name include optional namespace  (namespace.is.here)??name
+
+        //THIS WORKS
+        //string methodPattern = @"(?<=\bclass\s+" + info.DeclaringType.Name + @"\b) (?<leading>.*?)(?<methodSig>" + simplifiedReturnType + @"\s+?" + info.Name + @"\s*?\(" + paramBuilder.ToString() + @"\s*?\))\s*?{"; //Now having converted name include optional namespace  (namespace.is.here)??name // THIS WORKS, but want to remove leading for optimization, using substrings instead
+
+
+
+        //TODO allow interface, or specify
+        string typeSpecifier = (info.DeclaringType.IsInterface) ? "interface" : "class";
+        //string methodPattern = @"(?<=\bclass\s+?" + info.DeclaringType.Name + @"\b.*?)(?<methodSig>" + simplifiedReturnType + @"\s+?" + info.Name + @"\s*?\(" + paramBuilder.ToString() + @"\s*?\))(?=\s*?{)";
+        string methodPattern = @"(?<=\b" + typeSpecifier + @"\s+?" + info.DeclaringType.Name + @"\b) (?:.*?)(?<methodSig>" + simplifiedReturnType + @"\s+?" + info.Name + @"\s*?\(" + paramBuilder.ToString() + @"\s*?\))(?=\s*?{)";
 
         //// using .*? to allow for namespace specifiers, eg Michael.Classb vs ClassB. ALSO for generics, List<TypeHere> name
 

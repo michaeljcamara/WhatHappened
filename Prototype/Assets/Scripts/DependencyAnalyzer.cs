@@ -279,21 +279,21 @@ public class DependencyAnalyzer {
         //TEST LINE COMMENT
         string testLineComment = "string a = something;//then other stuff*/\nOn next line";
         testLineComment = lineCommentRegex.Replace(testLineComment, "");
-        Debug.LogWarning("TEST LINE: " + testLineComment);
+        //Debug.LogWarning("TEST LINE: " + testLineComment);
 
         //TEST BLOCK COMMENT
         string testBlockText = "TestEscape\\nThis is a /* first testEscape\\n \nblock \n\n\n " +
             "comment \nlast */ then \nnothing";
         foreach (Match m in blockCommentRegex.Matches(testBlockText)) {
-            Debug.Log("**Num newlines: " + m.Groups["newline"].Captures.Count);
+            //Debug.Log("**Num newlines: " + m.Groups["newline"].Captures.Count);
         }
         testBlockText = blockCommentRegex.Replace(testBlockText, "-REPLACED-");
-        Debug.LogWarning("BLOCK TEST: " + testBlockText);
+        //Debug.LogWarning("BLOCK TEST: " + testBlockText);
 
         //TEST STRING
         string testStringText = "TestEscape\\\"Again\\\"OUT1\"First \"    " + "OUT2\"second \"" + "OUT3\"third.\"___OUT55";
         testStringText = stringRegex.Replace(testStringText, "");
-        Debug.LogWarning(testStringText);
+        //Debug.LogWarning(testStringText);
 
         //REPLACE FILE CONTENTS
 
@@ -302,11 +302,11 @@ public class DependencyAnalyzer {
         //text = blockCommentRegex.Match(text, );
         text = blockCommentRegex.Replace(text, delegate (Match m) {
 
-            Debug.Log("Curr match = " + m.Value);
+            //Debug.Log("Curr match = " + m.Value);
 
             //TODO any way to avoid "using system.linq" for just this one extension method? other way to do
             int numNewlines = m.Value.Count(x => x == '\n');
-            Debug.Log("**Num newlines: " + numNewlines);
+            //Debug.Log("**Num newlines: " + numNewlines);
             System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder("");
             for (int i = 0; i < numNewlines; i++) {
                 stringBuilder.Append("\n");
@@ -317,7 +317,7 @@ public class DependencyAnalyzer {
 
         text = lineCommentRegex.Replace(text, "");
 
-        Debug.LogWarning("TEXT: " + text);
+        //Debug.LogWarning("TEXT: " + text);
 
         //TODO Revisit if MORE EFFICIENT to append line numbers to help with line number calculation later in regexs...if dont need backtrack, more performant?
         //System.Text.StringBuilder fileString = new System.Text.StringBuilder("");
@@ -392,8 +392,8 @@ public class DependencyAnalyzer {
         int currentIndex = 0, currentLength = 0;
 
         foreach (Match classMatch in classRegex.Matches(text)) {
-            Debug.Log("Current match: " + classMatch);
-            Debug.LogError("INDEX: " + classMatch.Index);
+            //Debug.Log("Current match: " + classMatch);
+            //Debug.LogError("INDEX: " + classMatch.Index);
 
             //Debug.Log("LEADING CAPTURE: " + classMatch.Groups["leading"].Captures[0]);
             //Debug.Log("LEADING CAPTURE: " + classMatch.Groups[0].Captures[0]);
@@ -405,7 +405,6 @@ public class DependencyAnalyzer {
             //currentLineNum += text.Substring(currentIndex, classMatch.Index + classMatch.Length).Count(x => x == '\n');
             currentLineNum += text.Substring(currentIndex, classMatch.Index-currentIndex).Count(x => x == '\n');
             currentIndex = classMatch.Index;
-            currentLength = classMatch.Length;
 
             //TODO Handle namespace conflicts
             string classString = classMatch.Groups["class"].Captures[0].Value;
@@ -419,21 +418,40 @@ public class DependencyAnalyzer {
             targetType.startLineNum = currentLineNum;
 
             //RENABLE
-            for (int i = targetType.startLineNum - 1, numOpenBraces = 0, numClosedBraces = 0; i < textByLine.Length && targetType.endLineNum == 0; i++) {
-                foreach (char c in textByLine[i]) {
-                    if (c == '{') {
+            for(int i = classMatch.Index, numOpenBraces = 0, numClosedBraces = 0, numNewLines = 0; i < text.Length; i++) {
+                switch(text[i]) {
+                    case '{':
                         numOpenBraces++;
-                    }
-                    else if (c == '}') {
-                        numClosedBraces++;
-                    }
-
-                    if (numOpenBraces == numClosedBraces && numOpenBraces != 0) {
-                        targetType.endLineNum = i + 1; // +1 since array is zero-indexed but line numbers are 1-indexed
                         break;
-                    }
+                    case '}':
+                        numClosedBraces++;
+                        break;
+                    case '\n':
+                        numNewLines++;
+                        break;
+                }
+
+                if (numOpenBraces == numClosedBraces && numOpenBraces != 0) {
+                    targetType.endLineNum = currentLineNum + numNewLines; // +1 since array is zero-indexed but line numbers are 1-indexed
+                    break;
                 }
             }
+            
+            //for (int i = targetType.startLineNum - 1, numOpenBraces = 0, numClosedBraces = 0; i < textByLine.Length && targetType.endLineNum == 0; i++) {
+            //    foreach (char c in textByLine[i]) {
+            //        if (c == '{') {
+            //            numOpenBraces++;
+            //        }
+            //        else if (c == '}') {
+            //            numClosedBraces++;
+            //        }
+
+            //        if (numOpenBraces == numClosedBraces && numOpenBraces != 0) {
+            //            targetType.endLineNum = i + 1; // +1 since array is zero-indexed but line numbers are 1-indexed
+            //            break;
+            //        }
+            //    }
+            //}
 
             /* RENABLE
             if(targetType.endLineNum == 0) {
@@ -472,27 +490,51 @@ public class DependencyAnalyzer {
                 //Now get start and end method line numbers
                 //TODO instead of going back to start of class declaration each time, start at end of previous method signature match
                 //currentLineNum += methodMatch.Groups["leading"].Captures[0].Value.Count(x => x == '\n');
-                
+
                 //TODO CHANGE THIS WITH SUBSTRING METHOD?
-                currentLineNum = targetType.startLineNum + methodMatch.Groups["leading"].Captures[0].Value.Count(x => x == '\n');
+                //currentLineNum = targetType.startLineNum + methodMatch.Groups["leading"].Captures[0].Value.Count(x => x == '\n');
+
+                //currentLineNum += text.Substring(currentIndex, methodMatch.Index - currentIndex).Count(x => x == '\n');
+                currentLineNum = targetType.startLineNum + text.Substring(classMatch.Index, methodMatch.Groups["methodSig"].Index - classMatch.Index).Count(x => x == '\n');
+                //currentIndex = methodMatch.Index;
 
                 method.startLineNum = currentLineNum;
 
-                for (int i = method.startLineNum - 1, numOpenBraces = 0, numClosedBraces = 0; i < textByLine.Length && method.endLineNum == 0; i++) {
-                    foreach (char c in textByLine[i]) {
-                        if (c == '{') {
+                for (int i = methodMatch.Groups["methodSig"].Index, numOpenBraces = 0, numClosedBraces = 0, numNewLines = 0; i < text.Length; i++) {
+                    switch (text[i]) {
+                        case '{':
                             numOpenBraces++;
-                        }
-                        else if (c == '}') {
-                            numClosedBraces++;
-                        }
-
-                        if (numOpenBraces == numClosedBraces && numOpenBraces != 0) {
-                            method.endLineNum = i + 1; // +1 since array is zero-indexed but line numbers are 1-indexed
                             break;
-                        }
+                        case '}':
+                            numClosedBraces++;
+                            break;
+                        case '\n':
+                            numNewLines++;
+                            break;
+                    }
+
+                    if (numOpenBraces == numClosedBraces && numOpenBraces != 0) {
+                        method.endLineNum = currentLineNum + numNewLines;
+                        break;
                     }
                 }
+
+
+                //for (int i = method.startLineNum - 1, numOpenBraces = 0, numClosedBraces = 0; i < textByLine.Length && method.endLineNum == 0; i++) {
+                //    foreach (char c in textByLine[i]) {
+                //        if (c == '{') {
+                //            numOpenBraces++;
+                //        }
+                //        else if (c == '}') {
+                //            numClosedBraces++;
+                //        }
+
+                //        if (numOpenBraces == numClosedBraces && numOpenBraces != 0) {
+                //            method.endLineNum = i + 1; // +1 since array is zero-indexed but line numbers are 1-indexed
+                //            break;
+                //        }
+                //    }
+                //}
 
                 if (method.endLineNum == 0) {
                     Debug.LogError("Could not find end line number for " + method.info.Name);
@@ -505,7 +547,8 @@ public class DependencyAnalyzer {
 
             }
 
-            currentLineNum = lineBeforeMethods;
+            currentLineNum = targetType.startLineNum;
+            currentIndex = classMatch.Index;
 
             if (numMatchesFound == targetType.methods.Count) {
                     Debug.LogError("**FOUND ALL METHODS IN " + targetType + ": " + numMatchesFound + " out of " + targetType.methods.Count);
