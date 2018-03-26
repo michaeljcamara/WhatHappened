@@ -6,13 +6,13 @@ using UnityEngine;
 public class CustomFile {
 
     private List<CustomType> types;
-    private FileInfo _file;
-    public FileInfo file { get { return _file; } }
+    private FileInfo _info;
+    public FileInfo info { get { return _info; } }
 
-    public string name { get { return _file.Name; } }
+    public string name { get { return _info.Name; } }
 
     public CustomFile(FileInfo file) {
-        this._file = file;
+        this._info = file;
     }
 
     public void SetTypesInFile(List<CustomType> types) {
