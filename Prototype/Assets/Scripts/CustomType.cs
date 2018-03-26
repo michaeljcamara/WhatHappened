@@ -11,7 +11,7 @@ public class CustomType {
 
     public Type type;
     public bool bHasChanged;
-    public FileStream file;
+    public CustomFile file;
     public string[] changedLines;
     public int numChangedLines;
     public int[] changedLineNums;
@@ -53,5 +53,9 @@ public class CustomType {
 
     public List<CustomMethod> GetMethods() {
         return methods;
+    }
+
+    public void SetFile(CustomFile file) {
+        this.file = file;
     }
 }

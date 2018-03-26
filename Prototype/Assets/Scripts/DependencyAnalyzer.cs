@@ -11,6 +11,7 @@ public class DependencyAnalyzer {
 
     public Dictionary<Type, HashSet<Type>> dependencyTable;
     public Assembly assembly; // TODO REMOVE THIS EVENTUALLY
+    private Dictionary<string, CustomType> customTypeLookup;
 
     //TODO IMPORTANT: Check if public/private classes WITHIN a class are captured by the GetALlTypes method
     //YES: CurrentType: ClassB+anotherClass1 //TODO need to handle this corrrectly, indicate private class within ClassB
@@ -129,7 +130,10 @@ public class DependencyAnalyzer {
 
             //typesAsStrings.UnionWith(GetTypeStringInFile(f));
 
-            AnalyzeFile(f);
+            CustomFile customFile = new CustomFile(f);
+
+            List<CustomType> typesInFile = ExtractTypesFromFile(customFile);
+            customFile.SetTypesInFile(typesInFile);
         }
 
         foreach (string typeString in typesAsStrings) {
@@ -245,7 +249,7 @@ public class DependencyAnalyzer {
         //}
     }
 
-    private string GetTypeStringInFile(FileInfo file) {
+    private string RemoveCommentsAndStrings(CustomFile file) {
 
         /* Goals for parsing files
          * Isolate CLASSES (or broadly Types) within file, so we can link files in Git with types in Assembly
@@ -258,7 +262,7 @@ public class DependencyAnalyzer {
          */
 
         //note ReadAllLines returns string[]
-        string text = File.ReadAllText(file.FullName);
+        string text = File.ReadAllText(file.file.FullName);
 
         string lineCommentPattern = @"(?<=^.*)(//.*?$)";
         //string lineCommentPattern = @"(?<=^.*)(//.*)(?!.*\*/$)"; //TODO Exclude if */ at end
@@ -352,28 +356,24 @@ public class DependencyAnalyzer {
         //return fileString.ToString();
     }
 
-    // ALL BELOW IS NEW
-    //REM:
-    /*
-     * Add CustomTypeLookup to other, plus populating before
-     * 
-     * */
-    Dictionary<string, CustomType> customTypeLookup;
+    
 
-    private void AnalyzeFile(FileInfo file) {
+    private List<CustomType> ExtractTypesFromFile(CustomFile file) {
         //TEMP
-        if (!file.Name.Equals("ClassB.cs")) {
-            return;
+        if (!file.name.Equals("ClassB.cs")) {
+            return null;
         }
+
+        List<CustomType> typesInFile = new List<CustomType>();
 
         //if (file.Name.Equals("CustomType.cs") || file.Name.Equals("CustomMethod.cs") || file.Name.Equals("DependencyAnalyzer.cs")) {
         //    return;
         //}
 
-        Debug.LogError("**STARTING FILE: " + file.Name);
+        Debug.LogError("**STARTING FILE: " + file.name);
 
         //string text = File.ReadAllText(file.FullName);
-        string text = GetTypeStringInFile(file);
+        string text = RemoveCommentsAndStrings(file);
         
         string classPattern = @"\b(?:class|interface)(?:\s+?)(?<class>[\_\w]+?\b)(?=[^{]*?{)"; // WORKS!!
         Regex classRegex = new Regex(classPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Singleline);
@@ -467,6 +467,9 @@ public class DependencyAnalyzer {
                 Debug.LogError("Could not find " + classString + " in customTypeLookup");
             }
 
+            typesInFile.Add(currentType);
+            currentType.SetFile(file);
+
             previousType = currentType;
             currentType.startLineNum = startLineNum;
             currentType.endLineNum = endLineNum;
@@ -538,7 +541,11 @@ public class DependencyAnalyzer {
             currentLineNum = currentType.startLineNum;
             currentIndex = classMatch.Index;
         }
+
+        return typesInFile;
     }
+
+
 
     void OnEnable() {
         Debug.LogError("ENABLING!!");
