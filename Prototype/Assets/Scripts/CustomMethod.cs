@@ -8,6 +8,7 @@ using UnityEngine;
 public class CustomMethod {
 
     public int startLineNum, endLineNum;
+    public int additions, deletions;
 
     public MethodInfo info;
 
@@ -219,5 +220,9 @@ public class CustomMethod {
         if more arguments, ",", else ">
         */
         return simplifiedName;
+    }
+
+    public override string ToString() {
+        return info.Name;
     }
 }

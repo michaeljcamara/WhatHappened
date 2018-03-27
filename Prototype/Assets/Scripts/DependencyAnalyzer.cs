@@ -11,12 +11,22 @@ public class DependencyAnalyzer {
 
     public Dictionary<Type, HashSet<Type>> dependencyTable;
     public Assembly assembly; // TODO REMOVE THIS EVENTUALLY
-    private Dictionary<string, CustomType> customTypeLookup;
+    private static Dictionary<string, CustomType> customTypeLookup;
+
+    public static CustomType GetCustomTypeFromString(string typeName) {
+        if(customTypeLookup.ContainsKey(typeName)) {
+            return customTypeLookup[typeName];
+        }
+        else {
+            return null;
+        }
+    }
 
     //TODO IMPORTANT: Check if public/private classes WITHIN a class are captured by the GetALlTypes method
     //YES: CurrentType: ClassB+anotherClass1 //TODO need to handle this corrrectly, indicate private class within ClassB
     //TODO: Need to consider datastructures of types, like List<SomeType> or SomeType[]
     //List: System.Collections.Generic.List`1[CustomMethod]
+    //TODO consider partial namespace prefixes, e.g. Int32 instead of System.Int32...umm, or need better example
 
     HashSet<Type> GetFieldDependencies(Type type) {
 
@@ -140,6 +150,45 @@ public class DependencyAnalyzer {
             //TODO figure out what return types from libgit2sharp diff/log are
         }
 
+        //CustomFile cf = customTypeLookup["ClassB"].file;
+        //int lineNum = 142;
+        //CustomType ct = cf.GetDeepestNestedTypeAtLineNum(customTypeLookup["ClassB"], lineNum);
+        //Debug.LogError("***Type at line " + lineNum + ": " + ct.type.Name);
+
+        CustomType ct = customTypeLookup["ClassB"];
+        int lineNum = 71;
+        CustomType deepestType = ct.GetDeepestNestedTypeAtLineNum(lineNum);
+        Debug.LogError("***Type at line " + lineNum + ": " + deepestType.type.FullName);
+        CustomMethod deepestMethod = deepestType.GetMethodAtLineNum(lineNum);
+        if (deepestMethod == null) {
+            Debug.LogError("  MethodThere: " + "NULL");
+        }
+        else {
+            Debug.LogError("  MethodThere: " + deepestMethod.info.Name);
+        }
+
+        CustomType typeAtLine = ct.file.GetTypeByLineNumber(lineNum);
+        Debug.Log(" Type at line: " + typeAtLine);
+        CustomMethod methodAtLine = null;
+        if (typeAtLine != null) {
+            methodAtLine = typeAtLine.GetMethodAtLineNum(lineNum);
+            if (methodAtLine != null) {
+                Debug.Log(" Method at line: " + methodAtLine.info.Name);
+            }
+            else {
+                Debug.Log("Method null");
+            }
+        }
+
+        //foreach (CustomType cts in cf.GetTypesInFile()) {
+        //    Debug.Log("  TYpes in file: " + cts.type.FullName);
+
+        //    CustomType[] nestedCt = cts.GetNestedCustomTypes();
+        //    foreach(CustomType ncts in nestedCt) {
+        //        Debug.LogWarning("    " + ncts.type.FullName + ", nested in " + cts);
+        //    }
+        //    Debug.Log("Length of nestedCts: " + nestedCt.Length);
+        //}
         GitDiffFile();
 
 
@@ -152,134 +201,255 @@ public class DependencyAnalyzer {
         //// TODO generalize this repo path, like maybe FileInfo, backtrack til find .git
         //"D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts"
         //    "D:\User\Documents\CMPSC\600\RegexTesting\RegexTesting\Assets\Scripts"
-        Repository repo = new Repository("D:/User/Documents/CMPSC/600/RegexTesting/RegexTesting/");
+        //Repository repo = new Repository("D:/User/Documents/CMPSC/600/RegexTesting/RegexTesting/");
+        //Repository repo = new Repository("D:/User/Documents/CMPSC/600/SeniorThesisPrototype/");
+        
+        //TODO allow user to select git path
+        DirectoryInfo gitDir = new DirectoryInfo(Path.GetFullPath("."));
+        bool isFound = false;
+        while (!isFound) {
+            DirectoryInfo[] dirs = gitDir.GetDirectories(".git");
+
+            if (dirs.Length == 0) {
+                if(gitDir.Parent == null) {
+                    Debug.LogError("!!Could not find Git directory working backwards, abort!");
+                }
+                else {
+                    gitDir = gitDir.Parent;
+                }
+            }
+            else {
+                isFound = true;
+                gitDir = dirs[0];
+            }
+        }
+        Debug.Log("This is the git dir: " + gitDir.FullName);
+        Repository repo = new Repository(gitDir.FullName);
+
 
         CustomFile chosenFile = customTypeLookup["ClassB"].file;
-        string fullPath = chosenFile.info.FullName;
+
+        //TODO UI dropdown select commit, then use here
         List<Commit> commitList = new List<Commit>();
         foreach(Commit c in repo.Commits) {
             commitList.Add(c);
         }
-        LibGit2Sharp.Tree chosenTree = commitList[0].Tree;
-        LibGit2Sharp.Tree chosenTree2 = commitList[1].Tree;
-        //TreeEntry entry = chosenTree[fullPath];
-        //Blob targetBlob = (Blob) entry.Target;
+        //LibGit2Sharp.Tree chosenTree = commitList[0].Tree; //most recent commit?
+        LibGit2Sharp.Tree recentCommit = repo.Head.Tip.Tree;
+        LibGit2Sharp.Tree chosenTree2 = commitList[6].Tree;
 
-        //Patch patch = repo.Diff.Compare<Patch>(chosenTree, DiffTargets.WorkingDirectory);
-        //Patch patch = repo.Diff.Compare<Patch>(chosenTree, chosenTree2);
-        //PatchEntryChanges changes = patch["Assets/Scripts/ClassB.cs"]; 
-        //string patchText = changes.Patch;
+        CompareOptions compareOptions = new CompareOptions();
+        compareOptions.ContextLines = 0; // if 0, only include modified lines in diff (has + or - at start of line). 3 is default
+        compareOptions.IncludeUnmodified = true; 
+        compareOptions.InterhunkLines = 0;  // if Int.MAX then all changes are in ONE hunk
 
-        //TreeChanges tChanges = repo.Diff.Compare<TreeChanges>();
-        //foreach(TreeEntryChanges c in tChanges) {
-        //    Debug.LogError("Changes: " + c.);
+        ExplicitPathsOptions pathOptions = new ExplicitPathsOptions();
+
+        //TODO include all files that branch from root selected class
+        List<string> chosenFilePaths = new List<string>() { chosenFile.relPath };
+
+        Patch patch = repo.Diff.Compare<Patch>(chosenTree2, DiffTargets.WorkingDirectory, new List<string> { chosenFile.relPath }, pathOptions, compareOptions);
+
+        //TODO iterate through each fil
+        PatchEntryChanges changes = patch[chosenFile.relPath]; //WORKS if correct relpath
+        string patchText = changes.Patch; // If no changes b/w commits, then "", or if notIncludeModified, null changes
+        Debug.LogError("***THEPATCH: " + patchText);
+
+        /*
+         * @@ -47,3 +63,26 @@ public class ClassB : MonoBehaviour {//exampe
+         * @@ -44 +55,5 @@ public class ClassB : MonoBehaviour {
+            -    
+            +    System.Text.StringBuilder HasParameters(string someString, ClassC someClass, int someInt, System.Text.StringBuilder someBuilder) {
+            +        System.Text.StringBuilder testBuilder = new System.Text.StringBuilder("");
+            +
+            +        return testBuilder;
+            +    }
+         */
+
+        //string diffPattern = @"\@\@\s\-(?:\d)+\s\+(?:\d)+\s\@\@";
+        //TODO do i need to remove comments/strings here too?
+
+        // WORKS  all hunk in one long string
+        string diffPattern = @"\@\@\s\-(?:\d+)(?:,\d+)??\s\+(?<start>\d+)(?:,\d+)??\s\@\@
+                            (?:[^\n]*?\n)(?<changes>.*?)(?=\n^@ | $\Z)
+                            ";
+
+        //TODO figure out way to sep chunks via regex
+        //string diffPattern = @"\@\@\s\-(?:\d+)(?:,\d+)??\s\+(?<start>\d+)(?:,\d+)??\s\@\@
+        //                    (?:[^\n]*?\n)(?<changes>^[\+]|[\-].*?$)+(?=\n^@ | $\Z)
+        //                    ";
+        Regex diffRegex = new Regex(diffPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Singleline | RegexOptions.Multiline);
+
+        foreach(Match m in diffRegex.Matches(patchText)) {
+            Debug.LogError("Found match: " + m);
+            Debug.LogError("   Hunk is:-" + m.Groups["changes"].Captures[0].Value + "-");
+            Debug.LogError("     LineNum is: " + m.Groups["start"].Captures[0].Value);
+            string hunk = m.Groups["changes"].Captures[0].Value;
+            int lineNum = Int32.Parse(m.Groups["start"].Captures[0].Value);
+
+            System.Text.StringBuilder fileString = new System.Text.StringBuilder("");
+            StringReader reader = new StringReader(hunk);
+            string line;
+            while ((line = reader.ReadLine()) != null) {
+
+                CustomType typeAtLine = chosenFile.GetTypeByLineNumber(lineNum);
+                Debug.Log(" Type at line: " + typeAtLine);
+                CustomMethod methodAtLine = null;
+                if (typeAtLine != null) {
+                    methodAtLine = typeAtLine.GetMethodAtLineNum(lineNum);
+                    if (methodAtLine != null) {
+                        Debug.Log(" Method at line: " + methodAtLine.info.Name);
+                    }
+                }
+                
+                switch (line[0]) {
+                    case '+':
+                        if (typeAtLine != null) {
+                            if (methodAtLine != null) {
+                                typeAtLine.additionsInMethods++;
+                                methodAtLine.additions++;
+                            }
+                            else {
+                                typeAtLine.additionsOutsideMethods++;
+                            }
+                        }
+                        lineNum++;
+                        break;
+                    case '-':
+                        if (typeAtLine != null) {
+                            if (methodAtLine != null) {
+                                typeAtLine.deletionsInMethods++;
+                                methodAtLine.deletions++;
+                            }
+                            else {
+                                typeAtLine.deletionsOutsideMethods++;
+                            }
+                        }
+                        break;
+                    default:
+                        Debug.LogError("Unknown hunk format for: " + hunk);
+                        break;
+                }
+
+            }
+        } // End iterate hunk matches
+
+        
+        List<CustomType> typesInFile = chosenFile.GetTypesInFile();
+
+        foreach(CustomType t in typesInFile) {
+            Debug.Log("Total changes in " + t + ": " + t + ", inMethods: " + t.totalChangesInMethods + ", outMethods: " + t.totalChangesOutsideMethods);
+
+            foreach(CustomMethod m in t.methods) {
+                Debug.LogWarning("   Total changes in " + m + ": " + (m.additions + m.deletions) + "(Adds: " + m.additions + ", Dels: " + m.deletions + ")");
+            }
+        }
+
+        //TODO why supernestedmethod had no recorded changes, should have +++. Look back at TopLevelClasses, see if need IsNested elsewhere instead of other thing
+
+
+
+        //Debug.LogError("***REPO***: " + repo.Head.CanonicalName);
+        //foreach (var a in repo.Head.Commits) { // First element is MOST RECENT, last is the initial commit
+        //    Debug.LogWarning("Commit message: " + a.Message); //Switched back to .NET 4.6 to allow use of LibGit2Sharp package (previous GitSharp package did not offer enough functionality)
+        //    Debug.LogWarning("Author" + a.Author); // Michael Camara <michaeljcamara@gmail.com>
+        //}
+        //Debug.LogError("--------------");
+
+        ////repo.Head.Tip.Parents.SingleOrDefault<GitObject>(); // singleOrDefault<T> return default init of T, eg null. Single can throw exception
+        //foreach (Commit commit in repo.Commits) {
+        //    foreach (var parent in commit.Pents) {
+        //        Debug.LogWarning(commit.Sha + " : " + commit.MessageShort);
+        //        foreach (TreeEntryChanges change in repo.Diff.Compare<TreeChanges>(parent.Tree,
+        //        commit.Tree)) {
+        //            Debug.LogWarning(changege.Status + " : " + change.Path);
+        //        }
+        //    }
         //}
 
-        //Debug.LogError("***THEPATCH: " + patchText);
+        //Debug.LogError("--------------");
 
-        //TODO 3-26, why getting null reff?? just path name issues?  Also, how to get workingDir for DiffTarget (ideally without closing vs....)
+        //string result = "-nothing-";
+        ////Path relative to where local .git directory stored, e.g. "." is D:/User/Documents/CMPSC/600/SeniorThesisPrototype
+        //string relPath = "Prototype/Assets/Scripts/DependencyAnalyzer.cs"; // Get path from individual file as iterating? FileInfo
+        //Debug.LogError("Full path: " + Path.GetFullPath(".")); //D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype
+        //List<Commit> CommitList = new List<Commit>();
+        //foreach (LogEntry entry in repo.Commits.QueryBy(relPath).ToList())
+        //    CommitList.Add(entry.Commit);
+        ////CommitList.Add(null); // Added to show correct initial add
 
-            //Debug.LogError("***REPO***: " + repo.Head.CanonicalName);
-            //foreach (var a in repo.Head.Commits) { // First element is MOST RECENT, last is the initial commit
-            //    Debug.LogWarning("Commit message: " + a.Message); //Switched back to .NET 4.6 to allow use of LibGit2Sharp package (previous GitSharp package did not offer enough functionality)
-            //    Debug.LogWarning("Author" + a.Author); // Michael Camara <michaeljcamara@gmail.com>
-            //}
-            //Debug.LogError("--------------");
+        //// Commits in which this file was modified
+        //Debug.LogError("CommitList Count: " + CommitList.Count);
+        //foreach (Commit c in CommitList) {
+        //    Debug.Log("Commit where changed: " + c.Message);
+        //}
 
-            ////repo.Head.Tip.Parents.SingleOrDefault<GitObject>(); // singleOrDefault<T> return default init of T, eg null. Single can throw exception
-            //foreach (Commit commit in repo.Commits) {
-            //    foreach (var parent in commit.Pents) {
-            //        Debug.LogWarning(commit.Sha + " : " + commit.MessageShort);
-            //        foreach (TreeEntryChanges change in repo.Diff.Compare<TreeChanges>(parent.Tree,
-            //        commit.Tree)) {
-            //            Debug.LogWarning(changege.Status + " : " + change.Path);
-            //        }
-            //    }
-            //}
+        //// General diff all paths
+        //TreeChanges treeChanges = repo.Diff.Compare<TreeChanges>();
+        //Patch patch = repo.Diff.Compare<Patch>();
 
-            //Debug.LogError("--------------");
+        //// THIS narrows to SPECIFIC file (or, possibly, directory)
+        //List<string> stringPaths = new List<string>();
+        //stringPaths.Add(relPath);
+        ////TreeChanges treeChanges = repo.Diff.Compare<TreeChanges>(stringPaths);
+        ////Patch patch = repo.Diff.Compare<Patch>(stringPaths);
 
-            //string result = "-nothing-";
-            ////Path relative to where local .git directory stored, e.g. "." is D:/User/Documents/CMPSC/600/SeniorThesisPrototype
-            //string relPath = "Prototype/Assets/Scripts/DependencyAnalyzer.cs"; // Get path from individual file as iterating? FileInfo
-            //Debug.LogError("Full path: " + Path.GetFullPath(".")); //D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype
-            //List<Commit> CommitList = new List<Commit>();
-            //foreach (LogEntry entry in repo.Commits.QueryBy(relPath).ToList())
-            //    CommitList.Add(entry.Commit);
-            ////CommitList.Add(null); // Added to show correct initial add
+        ////GitObject a1, b1;
+        ////ContentChanges cc = repo.Diff.Compare(a1, b1);
+        ////ContentChanges ccc = repo.Diff.Compare((Blob) repo.Head.Tip.Tree[""].Target, (Blob) repo.Head.Tip.Tree[""].Target);
+        ////ccc.Patch; // STRING, maybe the whole diff comparison with +++/---???
 
-            //// Commits in which this file was modified
-            //Debug.LogError("CommitList Count: " + CommitList.Count);
-            //foreach (Commit c in CommitList) {
-            //    Debug.Log("Commit where changed: " + c.Message);
-            //}
+        //Debug.LogError("TARGET BLOB: " + CommitList[0].Tree[relPath].Target);  // 3a8a48js8dh8a489ha48h9
+        //Debug.LogError("TARGET BLOB: " + CommitList[1].Tree[relPath].Target);  // 3a8a48js8dh8a489ha48h9    
 
-            //// General diff all paths
-            //TreeChanges treeChanges = repo.Diff.Compare<TreeChanges>();
-            //Patch patch = repo.Diff.Compare<Patch>();
+        //Blob firstBlob = (Blob)CommitList[0].Tree[relPath].Target;
+        //Blob secondBlob = (Blob)CommitList[1].Tree[relPath].Target;
 
-            //// THIS narrows to SPECIFIC file (or, possibly, directory)
-            //List<string> stringPaths = new List<string>();
-            //stringPaths.Add(relPath);
-            ////TreeChanges treeChanges = repo.Diff.Compare<TreeChanges>(stringPaths);
-            ////Patch patch = repo.Diff.Compare<Patch>(stringPaths);
+        ////ContentChanges changes = repo.Diff.Compare(firstBlob, secondBlob);
 
-            ////GitObject a1, b1;
-            ////ContentChanges cc = repo.Diff.Compare(a1, b1);
-            ////ContentChanges ccc = repo.Diff.Compare((Blob) repo.Head.Tip.Tree[""].Target, (Blob) repo.Head.Tip.Tree[""].Target);
-            ////ccc.Patch; // STRING, maybe the whole diff comparison with +++/---???
+        //CompareOptions compOptions = new CompareOptions();
+        ////compOptions.Algorithm = DiffAlgorithm.Patience;  
+        //ContentChanges changes = repo.Diff.Compare(firstBlob, secondBlob, compOptions);
 
-            //Debug.LogError("TARGET BLOB: " + CommitList[0].Tree[relPath].Target);  // 3a8a48js8dh8a489ha48h9
-            //Debug.LogError("TARGET BLOB: " + CommitList[1].Tree[relPath].Target);  // 3a8a48js8dh8a489ha48h9    
+        //////TRYING BLAME!!///
+        //////BlameOptions blameOpt; blameOpt.StartingAt; // indicate boundaries for class here, and commit reach
+        ////string fullPath = "D:/User/Documents/CMPSC/600/SeniorThesisPrototype/Prototype/Assets/Scripts/DependencyAnalyzer.cs";
+        ////BlameHunkCollection hunkCol = repo.Blame(relPath);
+        ////foreach(BlameHunk hunk in hunkCol) {
+        ////    //hunk.FinalStartLineNumber
+        ////    Debug.LogError("BLAME HUNK: " + hunk.ToString() + ", SIG: " + hunk.FinalSignature.ToString()); //Michael Camara, <michaeljcam..>
 
-            //Blob firstBlob = (Blob)CommitList[0].Tree[relPath].Target;
-            //Blob secondBlob = (Blob)CommitList[1].Tree[relPath].Target;
+        ////}
 
-            ////ContentChanges changes = repo.Diff.Compare(firstBlob, secondBlob);
+        //string stringPatch = changes.Patch;
+        //Debug.LogError("THE PATCH: " + stringPatch);
 
-            //CompareOptions compOptions = new CompareOptions();
-            ////compOptions.Algorithm = DiffAlgorithm.Patience;  
-            //ContentChanges changes = repo.Diff.Compare(firstBlob, secondBlob, compOptions);
+        //// Get working tree
+        ////Repo path: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\.git\, WorkingDir: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\
+        //Debug.LogError("Repo path: " + repo.Info.Path + ", WorkingDir: " + repo.Info.WorkingDirectory);
 
-            //////TRYING BLAME!!///
-            //////BlameOptions blameOpt; blameOpt.StartingAt; // indicate boundaries for class here, and commit reach
-            ////string fullPath = "D:/User/Documents/CMPSC/600/SeniorThesisPrototype/Prototype/Assets/Scripts/DependencyAnalyzer.cs";
-            ////BlameHunkCollection hunkCol = repo.Blame(relPath);
-            ////foreach(BlameHunk hunk in hunkCol) {
-            ////    //hunk.FinalStartLineNumber
-            ////    Debug.LogError("BLAME HUNK: " + hunk.ToString() + ", SIG: " + hunk.FinalSignature.ToString()); //Michael Camara, <michaeljcam..>
+        ////TODO how to change hunks, just solid block of text would be easier??? instead of @@-93,+34@@
+        ////NOTE ORDER of blobs makes no difference
+        ////ContentChanges reverseChanges = repo.Diff.Compare(secondBlob, firstBlob);
+        ////string reverseStringPatch = changes.Patch;
+        ////Debug.LogError("REVERSE PATCH: " + reverseStringPatch);
+        ///*
+        // * THE PATCH: @@ -6,12 +6,12 @@ using UnityEngine;
+        // using System.Runtime.CompilerServices;
+        // using System.IO;
+        // using System.Text.RegularExpressions;
+        //-//using GitSharp; //TODO Rem to remove this dependency
+        //+using GitSharp;
+        // * 
+        // */
 
-            ////}
+        //foreach (TreeEntryChanges change in treeChanges) {
+        //    Debug.Log("TREE Change: " + change.Status + " : " + change.Path + " : " + change);
+        //}
 
-            //string stringPatch = changes.Patch;
-            //Debug.LogError("THE PATCH: " + stringPatch);
-
-            //// Get working tree
-            ////Repo path: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\.git\, WorkingDir: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\
-            //Debug.LogError("Repo path: " + repo.Info.Path + ", WorkingDir: " + repo.Info.WorkingDirectory);
-
-            ////TODO how to change hunks, just solid block of text would be easier??? instead of @@-93,+34@@
-            ////NOTE ORDER of blobs makes no difference
-            ////ContentChanges reverseChanges = repo.Diff.Compare(secondBlob, firstBlob);
-            ////string reverseStringPatch = changes.Patch;
-            ////Debug.LogError("REVERSE PATCH: " + reverseStringPatch);
-            ///*
-            // * THE PATCH: @@ -6,12 +6,12 @@ using UnityEngine;
-            // using System.Runtime.CompilerServices;
-            // using System.IO;
-            // using System.Text.RegularExpressions;
-            //-//using GitSharp; //TODO Rem to remove this dependency
-            //+using GitSharp;
-            // * 
-            // */
-
-            //foreach (TreeEntryChanges change in treeChanges) {
-            //    Debug.Log("TREE Change: " + change.Status + " : " + change.Path + " : " + change);
-            //}
-
-            //foreach (PatchEntryChanges change in patch) {
-            //    Debug.Log("PATCH Change: " + change.Status + " : " + change.Path + " : " + change.LinesAdded + ";" + change.LinesDeleted + " : " + change);
-            //}
+        //foreach (PatchEntryChanges change in patch) {
+        //    Debug.Log("PATCH Change: " + change.Status + " : " + change.Path + " : " + change.LinesAdded + ";" + change.LinesDeleted + " : " + change);
+        //}
     }
 
     private string RemoveCommentsAndStrings(CustomFile file) {
@@ -464,11 +634,14 @@ public class DependencyAnalyzer {
             classString.Append(classMatch.Groups["class"].Captures[0].Value);
 
             // Handle nested types (e.g. private classes nested in other classes, potentially many nested levels)
+            //TODO clean this up with newer helper methods for nested classes
             bool foundParent = false;
+            bool isNested = false;
             do {
                 // No outer type detected, i.e. match is not nested
                 if (previousType == null) {
                     foundParent = true;
+                    isNested = false;
                 }
                 //Check if match is nested in previous matched type
                 else if (startLineNum >= previousType.startLineNum && endLineNum <= previousType.endLineNum) {
@@ -481,6 +654,7 @@ public class DependencyAnalyzer {
 
                     Debug.LogError(" NestedTypeName = " + classString.ToString());
                     foundParent = true;
+                    isNested = true;
                 }
                 //Not nested in previous matched type. Check if nested in that type's parent (if it exists)
                 else {

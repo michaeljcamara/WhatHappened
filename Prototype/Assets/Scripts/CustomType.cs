@@ -12,9 +12,12 @@ public class CustomType {
     public Type type;
     public bool bHasChanged;
     public CustomFile file;
-    public string[] changedLines;
-    public int numChangedLines;
-    public int[] changedLineNums;
+    public int additionsInMethods, additionsOutsideMethods, deletionsInMethods, deletionsOutsideMethods;
+    public int totalAdditions { get { return additionsInMethods + additionsOutsideMethods; } }
+    public int totalDeletions { get { return deletionsInMethods + deletionsOutsideMethods; } }
+    public int totalChangesInMethods { get { return additionsInMethods + deletionsInMethods; } }
+    public int totalChangesOutsideMethods { get { return additionsOutsideMethods + deletionsOutsideMethods; } }
+    public int totalLineChanges { get { return totalAdditions + totalDeletions; } }
 
     public CustomType[] dependsOn, usedBy;
     public CustomType[] parents, children;
@@ -57,5 +60,95 @@ public class CustomType {
 
     public void SetFile(CustomFile file) {
         this.file = file;
+    }
+
+    private CustomType[] nestedCustomTypes;
+
+    //TODO THIS HAS TO COME AFTER ALL OF TYPETABLE HAS BEEN POPULATED
+    public CustomType[] GetNestedCustomTypes() {
+
+        if(nestedCustomTypes != null) {
+            return nestedCustomTypes;
+        }
+        
+        // If null, first time called, initialize customTypeArray
+
+        Type[] nestedTypes = type.GetNestedTypes(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+        if(nestedTypes.Length > 0) {
+            nestedCustomTypes = new CustomType[nestedTypes.Length];
+
+            for(int i = 0; i < nestedTypes.Length; i++) {
+                Type currentType = nestedTypes[i];
+                //rem nested notation namespace.is.here.Then+Outer+Inner;
+                string simplifiedName = SimplifyTypeFullName(currentType);
+                CustomType customType = DependencyAnalyzer.GetCustomTypeFromString(simplifiedName);
+                if(customType != null) {
+                    nestedCustomTypes[i] = customType;
+                }
+                else {
+                    Debug.LogError("!! COULD NOT FIND " + simplifiedName + " in CustomType lookup table. Abort!");
+                }
+            }
+        }
+        //No nested types
+        else {
+            nestedCustomTypes = new CustomType[0];
+        }
+
+        return nestedCustomTypes;
+    }
+
+    private string SimplifyTypeFullName(Type t) {
+        return t.FullName.Replace(t.Namespace + ".", "");
+    }
+
+    //TODO change parameters, cant omit currenttype, have invoked directly by type itself
+    public CustomType GetDeepestNestedTypeAtLineNum(int lineNum) {
+
+        CustomType deepestType = null;
+
+        if (lineNum >= startLineNum && lineNum <= endLineNum) {
+            CustomType[] nestedTypes = GetNestedCustomTypes();
+
+            // If no nested types, then the current type encapsulates the line number
+            if (nestedTypes.Length == 0) {
+                deepestType = this;
+            }
+            // Otherwise need to check nested types to see if the line number corresponds specifically to one of them
+            else {
+                foreach (CustomType nestedType in nestedTypes) {
+                    CustomType t = nestedType.GetDeepestNestedTypeAtLineNum(lineNum);
+                    if (t != null) {
+                        deepestType = t;
+                        break;
+                    }
+                }
+
+                //None of nested types bound the lineNum, so the currentType is the deepest type bounding it
+                if (deepestType == null) {
+                    deepestType = this;
+                }
+            }
+        }
+
+        return deepestType;
+    }
+
+    public CustomMethod GetMethodAtLineNum(int lineNum) {
+
+        CustomMethod chosenMethod = null;
+
+        //TODO store startIndex globally, prevent needing to consider previous methods we have lexically passed already
+        int startIndex = 0;
+        for (int i = startIndex; i < methods.Count; i++) {
+            CustomMethod m = methods[i];
+            if (lineNum >= m.startLineNum && lineNum <= m.endLineNum) {
+                chosenMethod = m;
+                break;
+            }
+        }
+
+        return chosenMethod;
     }
 }

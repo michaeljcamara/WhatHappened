@@ -78,8 +78,9 @@ public class DependencyWindow : EditorWindow {
 
         //analyzer = UnityEngine.MonoBehaviour.FindObjectOfType<DependencyAnalyzer>();
 
-        analyzer = new DependencyAnalyzer();
-
+        //TODO RENEABLE 
+        //analyzer = new DependencyAnalyzer();
+        
         
     }
 
