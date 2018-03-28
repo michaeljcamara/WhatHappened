@@ -7,8 +7,10 @@ using UnityEngine;
 
 public class DependencyWindow : EditorWindow {
 
-	// Use this for initialization
-	void Start () {
+    private string[] typeNames;
+
+    // Use this for initialization
+    void Start () {
         Init();
 
         //style = new GUIStyle();
@@ -79,9 +81,9 @@ public class DependencyWindow : EditorWindow {
         //analyzer = UnityEngine.MonoBehaviour.FindObjectOfType<DependencyAnalyzer>();
 
         //TODO RENEABLE 
-        //analyzer = new DependencyAnalyzer();
-        
-        
+        analyzer = new DependencyAnalyzer();
+
+
     }
 
     DependencyWindow() {
@@ -98,21 +100,25 @@ public class DependencyWindow : EditorWindow {
     };
 
     void DrawBox() {
-         
         //**MOVE THIS TO ONGUI...CLICKED???
-        List<string> keyNames = new List<string>(analyzer.dependencyTable.Count);
-        foreach (Type t in analyzer.dependencyTable.Keys) {
-            keyNames.Add(t.Name);
+        Dictionary<string, CustomType>.ValueCollection customTypes = analyzer.GetAllCustomTypes();
+        typeNames = new string[customTypes.Count];
+        int typeIndex = 0;  
+        foreach (CustomType t in customTypes) {
+            typeNames[typeIndex] = t.simplifiedFullName;
+            typeIndex++;
         }
 
-        index = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Root:", index, keyNames.ToArray());
+
+        index = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Root:", index, typeNames);
+        CustomType chosenType = DependencyAnalyzer.GetCustomTypeFromString(typeNames[index]);
 
         //List<asd> someList = new List<asd>(5);
         //string[] newArray = Array.ConvertAll<asd, string>(someList.ToArray(), item => (string) item.ToString()); // USE THIS
-        
 
-        Assembly assembly = analyzer.assembly;
-        Type chosenType = assembly.GetType(keyNames[index]);
+
+        //Assembly assembly = analyzer.assembly;
+
         //foreach(Type t in assembly.GetTypes()) {
         //    Debug.Log("Iterating assembly types: " + t + ";; name is: " + t.Name);
         //}
@@ -141,7 +147,7 @@ public class DependencyWindow : EditorWindow {
     }
 
     //void DrawTreeFromType(Type type, Vector2 position, int level) {
-    Vector2 DrawTreeFromType(Type type, Vector2 position, int level) {
+    Vector2 DrawTreeFromType(CustomType type, Vector2 position, int level) {
 
         // Debug.LogWarning("DepTable count: " + analyzer.dependencyTable.Count + ", numKeys" + analyzer.dependencyTable.Keys.Count); 
         //TODO Could instead use texture for background material
@@ -213,19 +219,20 @@ public class DependencyWindow : EditorWindow {
 
         GUI.color = Color.cyan;
         //GUI.Box(classNode, type.Name);
-        GUI.Box(classNode, type.Name, style); //incl style
-        //GUI.Box(new Rect(0, 0, 100, 100), "SHSHSHS");
-        
+        GUI.Box(classNode, type.simplifiedFullName, style); //incl style
+                                                            //GUI.Box(new Rect(0, 0, 100, 100), "SHSHSHS");
+
         //TODO IF Cyclic dependency (this node same as node "up the tree to the root", then different edge color and STOP)
-        if (!analyzer.dependencyTable.ContainsKey(type) || level >= 6) {
+        //if (!analyzer.dependencyTable.ContainsKey(type) || level >= 6) {
+        if (level >= 6) {
             //return;
             //return Vector2.zero;
             return new Vector2(x, y);
         }
 
 
-        HashSet<Type> dependencies = analyzer.dependencyTable[type];
-        
+        HashSet<CustomType> dependencies = type.GetDependencies();
+
 
         int numDependencies = dependencies.Count;
         //Debug.Log("Curr type: " + type + ", Num deps:" + numDependencies);
@@ -241,7 +248,7 @@ public class DependencyWindow : EditorWindow {
 
 
         float i = (numDependencies - 1) / -2.0f;
-        foreach(Type t in dependencies) {
+        foreach(CustomType t in dependencies) {
             //Vector2 newPos = position + stepWidth + stepHeight * i;
             Vector2 newPos = new Vector2(position.x + stepWidth, position.y + stepHeight * i);
             //DrawTreeFromType(t, newPos, level + 1);
@@ -298,6 +305,8 @@ public class DependencyWindow : EditorWindow {
             pivotOffset = Vector2.zero;
             positionOffset = Vector2.zero;
             zoomLevel = 0;
+
+
         }
         else {
             if (Event.current.isMouse) { // still captures mouse up, down, and DRAG. Not mouse wheel

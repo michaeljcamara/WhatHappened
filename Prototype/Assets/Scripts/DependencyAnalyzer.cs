@@ -9,7 +9,7 @@ using LibGit2Sharp;
 
 public class DependencyAnalyzer {
 
-    public Dictionary<Type, HashSet<Type>> dependencyTable;
+    //public Dictionary<CustomType, HashSet<CustomType>> dependencyTable;
     public Assembly assembly; // TODO REMOVE THIS EVENTUALLY
     private static Dictionary<string, CustomType> customTypeLookup;
 
@@ -22,11 +22,17 @@ public class DependencyAnalyzer {
         }
     }
 
+    public Dictionary<string, CustomType>.ValueCollection GetAllCustomTypes() {
+        return customTypeLookup.Values;
+    }
+
     //TODO IMPORTANT: Check if public/private classes WITHIN a class are captured by the GetALlTypes method
     //YES: CurrentType: ClassB+anotherClass1 //TODO need to handle this corrrectly, indicate private class within ClassB
     //TODO: Need to consider datastructures of types, like List<SomeType> or SomeType[]
     //List: System.Collections.Generic.List`1[CustomMethod]
     //TODO consider partial namespace prefixes, e.g. Int32 instead of System.Int32...umm, or need better example
+    //TODO If dependency is generic type, get genericParams, add to dependency list
+    //TODO need to add nested types to dep list
 
     HashSet<Type> GetFieldDependencies(Type type) {
 
@@ -75,7 +81,7 @@ public class DependencyAnalyzer {
 
     public DependencyAnalyzer() {
 
-        dependencyTable = new Dictionary<Type, HashSet<Type>>();
+        //dependencyTable = new Dictionary<CustomType, HashSet<CustomType>>();
         assembly = Assembly.GetExecutingAssembly();
         customTypeLookup = new Dictionary<string, CustomType>(); //NEWW
 
@@ -86,19 +92,60 @@ public class DependencyAnalyzer {
 
         Type[] types = assembly.GetTypes();
         for (int i = 0; i < types.Length; i++) {
+
             Type currentType = types[i];
-            //Debug.Log("CurrentType: " + currentType);
+            //Dont include any namespaces not created by the user
+            //TODO refine this to ensure only UnityEngine/UnityEditor/System namespaces included, not GreatSystem etc
+            //if (currentType.Namespace != null && (currentType.Namespace.Contains("Unity") || currentType.Namespace.Contains("System"))) {
+            //TODO ideally exclude all of my namespace WhatChanged or whatever
+            if (currentType.Namespace != null && (currentType.Namespace.Contains("Unity") || currentType.Namespace.Contains("System")) || currentType == typeof(CustomType) || currentType == typeof(DependencyAnalyzer)) {
+            continue;
+            }
 
+            Debug.LogError("Type name: " + currentType.Name + ", fullname: " + currentType.FullName + ", isNested(has+): " + currentType.IsNested + ", namespace: " + currentType.Namespace + ", FULLTYPE: " + currentType); //Type name: anotherClass1, fullname: ClassB+anotherClass1, isNested(has+): True, namespace: // NEWWW
+
+            //Ensure every customType is a singleton
+            //TODO better way?
+            CustomType customType;
+            string typeName = SimplifyTypeFullName(currentType);
+            if (customTypeLookup.ContainsKey(typeName)) {
+                customType = customTypeLookup[typeName];
+            }
+            else {
+                customType = new CustomType(currentType);
+                customTypeLookup.Add(customType.simplifiedFullName, customType);
+            }
+            
+                 
             HashSet<Type> dependencySet = new HashSet<Type>();
-
-            //currentType.GetNestedTypes();
 
             dependencySet.UnionWith(GetFieldDependencies(currentType));
             dependencySet.UnionWith(GetMethodDependencies(currentType));
             //dependencySet.UnionWith(GetInheritanceDependencies()); //TODO
 
-            dependencyTable.Add(currentType, dependencySet);
+            HashSet<CustomType> customDependencySet = new HashSet<CustomType>();
+            foreach(Type t in dependencySet) {
+                 
+                if (t.Namespace != null && (t.Namespace.Contains("Unity") || t.Namespace.Contains("System")) || t == typeof(CustomType) || currentType == typeof(DependencyAnalyzer)) {
+                    continue;
+                }
+                CustomType chosenCustomType = null;
+                string name = SimplifyTypeFullName(t);
 
+                //Ensure that each customType is a singleton, same reference across all data structures
+                if(customTypeLookup.ContainsKey(name)) {
+                    chosenCustomType = customTypeLookup[name];
+                }
+                else {
+                    chosenCustomType = new CustomType(t);
+                    customTypeLookup.Add(chosenCustomType.simplifiedFullName, chosenCustomType);
+                }
+                customDependencySet.Add(chosenCustomType); 
+            }
+
+            customType.SetDependencies(customDependencySet);
+
+            //orig.ConvertAll(x => new TargetType { SomeValue = x.SomeValue });
             //TODO exclude system, unityengine types
             //foreach (Type type in dependencySet) {
             //    Debug.Log("HASHSET TYPES: " + type); //System.Int32
@@ -106,24 +153,11 @@ public class DependencyAnalyzer {
             //    //Debug.LogWarning(type.GetMethod("LogTest",BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
             //}
 
-            Debug.LogError("Type name: " + currentType.Name + ", fullname: " + currentType.FullName + ", isNested(has+): " + currentType.IsNested + ", namespace: " + currentType.Namespace + ", FULLTYPE: " + currentType); //Type name: anotherClass1, fullname: ClassB+anotherClass1, isNested(has+): True, namespace: // NEWWW
-
-            string keyName = "";
-
-            if (currentType.IsNested) {
-                //keyName = Regex.Replace(currentType.FullName, currentType.Namespace + @"\.", "");
-                //keyName = currentType.FullName.Substring(currentType.FullName.LastIndexOf('.'), currentType.FullName);
-                //keyName = currentType.FullName.Replace(currentType.Namespace + ".", "");
-                keyName = SimplifyTypeFullName(currentType);
-                Debug.LogError("FullName is: " + currentType.FullName + ", Keyname is: " + keyName);
-            }
-            else {
-                keyName = currentType.Name;
-            }
 
             //customTypeLookup.Add(currentType.Name, new CustomType(currentType)); //NEWW
-            customTypeLookup.Add(keyName, new CustomType(currentType)); //NEWW
+            
 
+            //dependencyTable.Add(customType, customDependencySet);
         }
 
         Debug.LogWarning("Datapath is: " + Application.dataPath);
@@ -191,6 +225,7 @@ public class DependencyAnalyzer {
         //}
         GitDiffFile();
 
+        //NodeEditorFramework.NodeCanvas asdf = new NodeEditorFramework.NodeCanvas();
 
     }
 

@@ -27,6 +27,8 @@ public class CustomMethod {
     private Regex CreateMethodRegex() {
         //        string classPattern = @"(?<leading>.*?)(?<=\bclass\s+)(?<class>\w+\b) (?=.*{)"; //works
 
+        //Debug.LogError("Method: " + info + ", Class: " + info.DeclaringType);
+
         System.Text.StringBuilder paramBuilder = new System.Text.StringBuilder("");
         foreach (ParameterInfo param in info.GetParameters()) {
             //Debug.Log("Parameter " + param + ", type: " + param.ParameterType + ", name: " + param.Name);
@@ -37,6 +39,8 @@ public class CustomMethod {
             //paramBuilder.Append(@".*?" + simplifiedType + @".+?" + param.Name); // using .*? to allow for namespace specifiers, eg Michael.Classb vs ClassB. ALSO for generics, List<TypeHere> name
             //paramBuilder.Append(simplifiedType + @"\s+?" + param.Name + @"(\s*?,\s*?)??"); //now with converted type having optional namespace (namespace.is.here)??name
             paramBuilder.Append(simplifiedType + @"\s*?" + param.Name + @"(\s*?,\s*?)??"); //change back to \s*? since maybe no space if type is generic/array []nameHere <>nameHere
+
+            //Debug.LogError("Simplified Type: " + simplifiedType + ", " + param.Name + ", " + param);
         }
         //Debug.Log("Fully formed parameter pattern: " + paramBuilder.ToString());
         //Fully formed parameter pattern: .*?ClassC\s*?someClass.*?Int32\s*?someInt.*?StringBuilder\s*?someBuilder
@@ -82,7 +86,7 @@ public class CustomMethod {
     /// </summary>
     private string SimplifyTypeName(Type primitive) {
 
-        //Debug.Log("Type being converted is: " + primitive + ", namespace is: " + primitive.Namespace + ", name is : " + primitive.Name);
+        
         //Type being converted is: System.Collections.Generic.List`1[CustomMethod], namespace is: System.Collections.Generic, name is : List`1
 
         //Debug.Log("Generic: " + primitive.IsGenericParameter + ", " + primitive.IsGenericType + ", " + primitive.IsGenericTypeDefinition +
@@ -94,17 +98,21 @@ public class CustomMethod {
         string startName = primitive.Name;
         string endName = "";
 
-        //primitive.Name.Replace('')
-        
+        //Debug.Log("Type being converted is: " + primitive + ", namespace is: " + primitive.Namespace + ", name is : " + primitive.Name);
 
-        if(primitive.IsArray || primitive.IsGenericType) {
-            string splitNameFromContainer = @"(?<name>[^\[`]+)(?<ending>[\[`].*?$)";
+        //if (primitive.IsArray || primitive.IsGenericType) {
+        //Debug.LogError("IsSpecial?: " + primitive.IsSpecialName + primitive.IsByRef + primitive.IsPointer); 
+        if (primitive.IsArray || primitive.IsGenericType || primitive.IsByRef) {
+            //Debug.Log("inside thing: " + primitive);
+            string splitNameFromContainer = @"(?<name>[^\[`]+)(?<ending>[\[`\&].*?$)";
             Match nameMatch = Regex.Match(primitive.Name, splitNameFromContainer);
 
             startName = nameMatch.Groups["name"].Captures[0].Value;
             endName = nameMatch.Groups["ending"].Captures[0].Value;
             endName = endName.Replace("[", @"\[");
-            endName = endName.Replace("]", @"\]");
+            endName = endName.Replace("]", @"\]");   
+
+            //Debug.LogError("StartName After: " + startName + ", EndName: " + endName + ", Type: " + primitive);
         }
 
         //Get alpha-numeric-Underscore NAME first, e.g List not List`1, Int32 not Int32[][][] or Int32[,,]
@@ -118,7 +126,8 @@ public class CustomMethod {
             case "Object":
             case "String":
             case "Void":
-                startName = primitive.Name.ToLower();
+                //startName = primitive.Name.ToLower();
+                startName = startName.ToLower();
                 break;
 
             case "Boolean":
@@ -174,8 +183,10 @@ public class CustomMethod {
 
         }
         else if (primitive.IsArray) {
+            //Debug.LogError("   Startname before: " + startName);
             startName += endName;
             //TODO handle nested arrays, [,] [,,] [] [][] etc
+            //Debug.LogError("   Startname after: " + startName + ",  end = " + endName);
         }
 
         //TODO consider returning both "int" and "System.Int32" since technically either could be used

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class ClassB : MonoBehaviour {
+    public ClassA classA;
+    public ClassB classB;
 
     //TODO WHAT ABOUT INTERFACES?? (clas | interfac) during regex?
     public int publicInt;

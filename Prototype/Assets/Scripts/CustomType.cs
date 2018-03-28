@@ -19,6 +19,14 @@ public class CustomType {
     public int totalChangesOutsideMethods { get { return additionsOutsideMethods + deletionsOutsideMethods; } }
     public int totalLineChanges { get { return totalAdditions + totalDeletions; } }
 
+    private string _simplifiedFullName;
+    public string simplifiedFullName { get {
+            if(_simplifiedFullName == null) {
+                _simplifiedFullName = type.FullName.Replace(type.Namespace + ".", "");
+            }
+            return _simplifiedFullName;
+        } }
+
     public CustomType[] dependsOn, usedBy;
     public CustomType[] parents, children;
 
@@ -30,7 +38,7 @@ public class CustomType {
     public int endLineNum;  //END is where last closing brace is '}'
 
     public List<CustomMethod> methods;
-    
+    private HashSet<CustomType> dependencies;
 
 	public CustomType(Type type) {
         this.type = type;
@@ -48,6 +56,25 @@ public class CustomType {
             }
             
         }
+    }
+
+    public void SetDependencies(HashSet<CustomType> dependencies) {
+        this.dependencies = dependencies;
+
+        if(simplifiedFullName == "ClassB") {
+            Debug.LogWarning("FOUND CLASS B!! Iterating deps: ");
+            foreach(CustomType t in dependencies) {
+                Debug.LogWarning("  Dep: " + t);      
+            }
+
+            foreach (CustomType t in this.dependencies) {
+                Debug.LogWarning("  ThisDep: " + t);
+            }
+        }
+    }
+
+    public HashSet<CustomType> GetDependencies() {
+        return dependencies;
     }
 
     override public string ToString() {
