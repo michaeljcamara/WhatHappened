@@ -126,7 +126,7 @@ public class DependencyAnalyzer {
             HashSet<CustomType> customDependencySet = new HashSet<CustomType>();
             foreach(Type t in dependencySet) {
                  
-                if (t.Namespace != null && (t.Namespace.Contains("Unity") || t.Namespace.Contains("System")) || t == typeof(CustomType) || currentType == typeof(DependencyAnalyzer)) {
+                if (t.Namespace != null && (t.Namespace.Contains("Unity") || t.Namespace.Contains("System")) || t == typeof(CustomType) || currentType == typeof(DependencyAnalyzer) || t == currentType) {
                     continue;
                 }
                 CustomType chosenCustomType = null;
