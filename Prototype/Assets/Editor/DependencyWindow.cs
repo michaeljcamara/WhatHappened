@@ -34,7 +34,7 @@ public class DependencyWindow : EditorWindow {
     int maxNodesPerLevel;
     Dictionary<int, int> nodesPerLevel;
     CustomTypeNode selectedNode;
-    LinkedList<CustomTypeNode> allNodes;
+    Dictionary<int, LinkedList<CustomTypeNode>> allNodes;
 
     private void Awake() {
         Debug.LogWarning("NOW AWAKE!!");
@@ -66,14 +66,23 @@ public class DependencyWindow : EditorWindow {
 
         //TODO DELETE
         CustomType chosenType = DependencyAnalyzer.GetCustomTypeFromString(typeNames[index]);
-        allNodes = CreateDependencyTree(chosenType, new LinkedList<CustomType>(), new LinkedList<CustomTypeNode>(), 0);
+        allNodes = CreateDependencyTree(chosenType, null, new LinkedList<CustomType>(), new Dictionary<int, LinkedList<CustomTypeNode>>(), 0);
 
-        Debug.LogWarning("TOTAL NODES MADE: " + allNodes.Count);
-        foreach(CustomTypeNode node in allNodes) {
-            Debug.LogWarning("  NODE IS: " + node.type);
+        
+        int nodeCount = 0;
+        foreach(KeyValuePair<int, LinkedList<CustomTypeNode>> pair in allNodes) {
+            if(pair.Value.Count > maxNodesPerLevel) {
+                maxNodesPerLevel = pair.Value.Count;
+            }
+            int nodeIndex = 0;
+            foreach (CustomTypeNode node in pair.Value) {
+                Debug.LogWarning("  NODE IS: " + node.type + ", Level is: " + pair.Key + ", index = " + nodeIndex);
+                nodeCount++;
+                nodeIndex++;
+            }
         }
+        Debug.LogWarning("TOTAL NODES MADE: " + allNodes.Count);
 
-        maxNodesPerLevel = nodesPerLevel.Values.Max();
     }
 
     private void OnDisable() {
@@ -173,26 +182,45 @@ public class DependencyWindow : EditorWindow {
         GUI.color = Color.gray;
         GUI.Box(m_backgroundRect, "");
 
+        //RectTransform dd = new RectTransform();
+
+        //EditorGUIUtility.ScaleAroundPivot(new Vector2(zoomLevel, zoomLevel), Vector2.zero);
         DrawBox();
+        //EditorGUIUtility.ScaleAroundPivot(Vector2.one, Vector2.one);
+        
+
+        //Debug.LogWarning("SplitPos BEFORE: " + horizontalSplitView.ToString() + horizontalSplitView.scrollPosition);
+        Debug.LogWarning("SplitPos BEFORE: " + horizontalSplitView.ToString());
         horizontalSplitView.Split();
+        //Debug.LogWarning("SplitPos AFTER: " + horizontalSplitView.scrollPosition);
 
         verticalSplitView.BeginSplitView();
+        
         GUILayout.BeginHorizontal();
+        
         GUILayout.FlexibleSpace();
+        
         GUILayout.BeginVertical();
+        
         GUILayout.FlexibleSpace();
+        
         GUILayout.Label("Centered text");
+        
         GUILayout.FlexibleSpace();
+        
         GUILayout.EndVertical();
+        
         GUILayout.FlexibleSpace();
+        
         GUILayout.EndHorizontal();
+        
         verticalSplitView.Split();
         GUILayout.BeginHorizontal();
         GUILayout.Label("Centered text");
         GUILayout.EndHorizontal();
         verticalSplitView.EndSplitView();
         horizontalSplitView.EndSplitView();
-
+        
         Repaint();
     }
 
@@ -203,35 +231,38 @@ public class DependencyWindow : EditorWindow {
         index = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Root:", index, typeNames);
         CustomType chosenType = DependencyAnalyzer.GetCustomTypeFromString(typeNames[index]);
 
-        //int maxNodes = GetMaxNodesPerLevel(chosenType);
+        DrawNodes();
 
-        //TODO: How to allow pan left, after zooming in, when elements off the LEFT side
-        //Rect scaledRect = new Rect(positionOffset.x, positionOffset.y, window.position.width * 3, window.position.height * 3); // Adding *3 mult expands draw space, otherwise cuts off
-        //**THIS ALLOWS PANNING FOR OFFSCREEN ELEMENTS
-        //TODO figure out how far can expand window in neg dir....inefficient? Other way? Keep track of arbitrary -500 val
-        //Rect scaledRect = new Rect(-500 + positionOffset.x, positionOffset.y, window.position.width * 3, window.position.height * 3); // Adding *3 mult expands draw space, otherwise cuts off
-        Rect scaledRect = new Rect(-50 * Mathf.Abs(zoomLevel) + positionOffset.x, -50 * Mathf.Abs(zoomLevel) + positionOffset.y, window.position.width * 10, window.position.height * 10); // Adding *3 mult expands draw space, otherwise cuts off
-        window.BeginWindows(); // Need this to allow panning while window is docked, no visible difference otherwise(?)
+        ////COMMENT THIS
+        ////int maxNodes = GetMaxNodesPerLevel(chosenType);
+
+        ////TODO: How to allow pan left, after zooming in, when elements off the LEFT side
+        ////Rect scaledRect = new Rect(positionOffset.x, positionOffset.y, window.position.width * 3, window.position.height * 3); // Adding *3 mult expands draw space, otherwise cuts off
+        ////**THIS ALLOWS PANNING FOR OFFSCREEN ELEMENTS
+        ////TODO figure out how far can expand window in neg dir....inefficient? Other way? Keep track of arbitrary -500 val
+        ////Rect scaledRect = new Rect(-500 + positionOffset.x, positionOffset.y, window.position.width * 3, window.position.height * 3); // Adding *3 mult expands draw space, otherwise cuts off
+        //Rect scaledRect = new Rect(-50 * Mathf.Abs(zoomLevel) + positionOffset.x, -50 * Mathf.Abs(zoomLevel) + positionOffset.y, window.position.width * 10, window.position.height * 10); // Adding *3 mult expands draw space, otherwise cuts off
+        //window.BeginWindows(); // Need this to allow panning while window is docked, no visible difference otherwise(?)
         
-        GUI.BeginGroup(scaledRect);
+        //GUI.BeginGroup(scaledRect);
 
-        DrawTreeFromType(chosenType, new Vector2(50, window.position.height / 2 - 25), 0);
-        GUI.EndGroup();
-        window.EndWindows();
+        //DrawTreeFromType(chosenType, new Vector2(50, window.position.height / 2 - 25), 0);
+        //GUI.EndGroup();
+        //window.EndWindows();
     }
 
-      
-    LinkedList<CustomTypeNode> CreateDependencyTree(CustomType type, LinkedList<CustomType> currentBranch, LinkedList<CustomTypeNode> allNodes, int level) {
+
+    Dictionary<int, LinkedList<CustomTypeNode>> CreateDependencyTree(CustomType type, CustomTypeNode parent, LinkedList<CustomType> currentBranch, Dictionary<int, LinkedList<CustomTypeNode>> allNodes, int level) {
         
-        if(!nodesPerLevel.ContainsKey(level)) {
-            nodesPerLevel.Add(level, 1);
+        CustomTypeNode node = new CustomTypeNode(type, parent, level);
+        if (!allNodes.ContainsKey(level)) {
+            LinkedList<CustomTypeNode> listThisLevel = new LinkedList<CustomTypeNode>();
+            listThisLevel.AddLast(node);
+            allNodes.Add(level, listThisLevel);
         }
         else {
-            nodesPerLevel[level]++;
+            allNodes[level].AddLast(node);
         }
-
-        CustomTypeNode node = new CustomTypeNode(type, level);
-        allNodes.AddLast(node);
 
         HashSet<CustomType> dependencies = type.GetDependencies();
 
@@ -243,78 +274,96 @@ public class DependencyWindow : EditorWindow {
 
             foreach (CustomType dependency in dependencies) {
                 //CreateDependencyTree(stack, allNodes, level + 1);            
-                CreateDependencyTree(dependency, currentBranch, allNodes, level + 1);
+                CreateDependencyTree(dependency, node, currentBranch, allNodes, level + 1);
             }
         }
 
         return allNodes;
     }
+    Vector2 scrollPosition = Vector2.zero;
+    void DrawNodes() {
 
-    //void DrawNodes() {
-    //    //TODO adjust this so top doesnt get cut off!
-    //    Rect scaledRect = new Rect(-50 * Mathf.Abs(zoomLevel) + positionOffset.x, -50 * Mathf.Abs(zoomLevel) + positionOffset.y, window.position.width * 10, window.position.height * 10); // Adding *3 mult expands draw space, otherwise cuts off
-    //    window.BeginWindows(); // Need this to allow panning while window is docked, no visible difference otherwise(?)
+        Debug.Log("Before Window pos:" + window.position);
+        //TODO adjust this so top doesnt get cut off!
+        //Rect scaledRect = new Rect(-50 * Mathf.Abs(zoomLevel) + positionOffset.x, -50 * Mathf.Abs(zoomLevel) + positionOffset.y, window.position.width * 10, window.position.height * 10); // Adding *3 mult expands draw space, otherwise cuts off
+        Rect scaledRect = new Rect(-5000 + positionOffset.x, -5000 + positionOffset.y, 10000, 10000); // Adding *3 mult expands draw space, otherwise cuts off
+        GUI.color = Color.cyan;
+        //window.BeginWindows(); // Need this to allow panning while window is docked, no visible difference otherwise(?)
 
-    //    GUI.BeginGroup(scaledRect);
+        //GUI.BeginGroup(scaledRect);
+        //GUI.BeginScrollView(scaledRect, new Vector2(100, 100), new Rect(0, 0, 1000, 1000));
 
-    //    //DrawTreeFromType(chosenType, new Vector2(50, window.position.height / 2 - 25), 0);
+        //window.BeginWindows(); // Need this to allow panning while window is docked, no visible difference otherwise(?)
+        scrollPosition = GUI.BeginScrollView(new Rect(0, 0, window.position.width * horizontalSplitView.splitNormalizedPosition, window.position.height), scrollPosition, new Rect(0, 0, 3000, 3000));
+        //EditorGUIUtility.ScaleAroundPivot(new Vector2(zoomLevel, zoomLevel), Vector2.zero);
 
-        
+        float boxWidth = 50 + 50 * (zoomeScaleStep * zoomLevel);
+        float boxHeight = 50 + 50 * (zoomeScaleStep * zoomLevel);
+        //float boxWidth = 50;
+        //float boxHeight = 50;
 
-    //    foreach(CustomTypeNode node in allNodes) {
-    //        float boxWidth = 50 + 50 * (zoomeScaleStep * zoomLevel);
-    //        float boxHeight = 50 + 50 * (zoomeScaleStep * zoomLevel);
+        float maxY = (window.position.height / 2 - boxHeight / 2) - ((maxNodesPerLevel - 1) / 2.0f * boxHeight);
+        Vector2 start = new Vector2(50, window.position.height / 2 - boxHeight / 2);
 
-    //        float windowCenterX = window.position.width / 2 - boxWidth / 2;
-    //        float windowCenterY = window.position.height / 2 - boxHeight / 2;
+        maxY = 0;
 
-    //        //TODO REM to adjust this based on mouse cursor position, eventually
-    //        float x = position.x + (position.x - windowCenterX) / windowCenterX * zoomPositionStep * zoomLevel;
-    //        float y = position.y + (position.y - windowCenterY) / windowCenterY * zoomPositionStep * zoomLevel;
-    //        x += 50 * Mathf.Abs(zoomLevel);
-    //        y += 50 * Mathf.Abs(zoomLevel);
+        //TODO CHANGE TO FOREACH, does it matter order of level
+        //for (int i = 0; i < allNodes.Keys.Count; i++) {
+        foreach (KeyValuePair<int, LinkedList<CustomTypeNode>> pair in allNodes) {
+            int level = pair.Key;
+            int numNodes = pair.Value.Count;
 
-    //        //TODO double check dir of y
-    //        float maxY = y + (maxNodesPerLevel - 1) / 2.0f * boxHeight;
+            float xStep = 150f;
+            //float yStep = ((maxNodesPerLevel * 2 - 1 - numNodes) / (numNodes - 1.0f)) * boxHeight;
+            //float yStep = ((maxNodesPerLevel * 2 - 1) - numNodes) / ((float) numNodes + 1.0f) * boxHeight;
+            float yStep = ((maxNodesPerLevel * 2 - 1) - numNodes) / ((float)numNodes + 1.0f) * 50;
 
-    //        if (node.level == 0) {
-    //            node.rect = new Rect(x, y, boxWidth, boxHeight);
-    //            GUI.Box(node.rect, node.type.simplifiedFullName, style);
-    //        }
-    //        else {
+            xStep += xStep * zoomeScaleStep * zoomLevel;
+            yStep += yStep * zoomeScaleStep * zoomLevel;
+            
+
+            int nodeIndex = 0;
+            foreach (CustomTypeNode node in pair.Value) {
+                //Debug.Log("Drawing: " + node.type.simplifiedFullName + ", level: " + level + ", Index: " + nodeIndex);
+                //node.rect = new Rect(boxWidth + xStep * level, maxY + (nodeIndex * yStep), boxWidth, boxHeight);
+                node.rect = new Rect(boxWidth + xStep * level, (nodeIndex + 1) * yStep + (nodeIndex * boxHeight), boxWidth, boxHeight);
+                GUI.Box(node.rect, node.type.simplifiedFullName, style);
+                nodeIndex++;
+            }
+        }
+
+        //TODO DRAW LINES TO PARENT
 
 
 
-    //        }
+        //Rect classNode = new Rect(x, y, boxWidth, boxHeight);
+        //GUI.color = Color.cyan;
+        //GUI.Box(classNode, type.simplifiedFullName, style);
+
+        //HashSet<CustomType> dependencies = type.GetDependencies();
+        //int numDependencies = dependencies.Count;
+        //float stepHeight = window.position.height / (numDependencies + 1);
+        //float stepWidth = 150.0f;
+
+        //float index = (numDependencies - 1) / -2.0f;
+        //foreach (CustomType t in dependencies) {
+        //    Vector2 newPos = new Vector2(position.x + stepWidth, position.y + stepHeight * index);
+        //    Vector2 drawnVector = DrawTreeFromType(t, newPos, level + 1);
+        //    index++;
+        //    Handles.color = Color.black;
+        //    //TODO cleaner way of saying where the lines should connect between boxes
+        //    Handles.DrawLine(new Vector2(x + boxWidth, y + boxHeight / 2), drawnVector + new Vector2(0, boxHeight / 2));
+        //}
 
 
-    //    }
-
-        
-
-
-    //    Rect classNode = new Rect(x, y, boxWidth, boxHeight);
-    //    GUI.color = Color.cyan;
-    //    GUI.Box(classNode, type.simplifiedFullName, style);
-
-    //    HashSet<CustomType> dependencies = type.GetDependencies();
-    //    int numDependencies = dependencies.Count;
-    //    float stepHeight = window.position.height / (numDependencies + 1);
-    //    float stepWidth = 150.0f;
-
-    //    float i = (numDependencies - 1) / -2.0f;
-    //    foreach (CustomType t in dependencies) {
-    //        Vector2 newPos = new Vector2(position.x + stepWidth, position.y + stepHeight * i);
-    //        Vector2 drawnVector = DrawTreeFromType(t, newPos, level + 1);
-    //        i++;
-    //        Handles.color = Color.black;
-    //        //TODO cleaner way of saying where the lines should connect between boxes
-    //        Handles.DrawLine(new Vector2(x + boxWidth, y + boxHeight / 2), drawnVector + new Vector2(0, boxHeight / 2));
-    //    }
-
-    //    GUI.EndGroup();
-    //    window.EndWindows();
-    //}
+        //GUI.Button(new Rect(0, 0, 100, 20), "Top-left");
+        //GUI.Button(new Rect(120, 0, 100, 20), "Top-right");
+        //GUI.Button(new Rect(0, 180, 100, 20), "Bottom-left");
+        //GUI.Button(new Rect(120, 180, 100, 20), "Bottom-right");
+        //GUI.EndGroup();
+        GUI.EndScrollView();
+        //window.EndWindows();
+    }
 
     Vector2 DrawTreeFromType(CustomType type, Vector2 position, int level) {
 

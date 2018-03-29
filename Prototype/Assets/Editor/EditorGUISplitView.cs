@@ -11,14 +11,18 @@ public class EditorGUISplitView
 	}
 
 	Direction splitDirection;
-	float splitNormalizedPosition;
+	float _splitNormalizedPosition;
+    public float splitNormalizedPosition { get { return _splitNormalizedPosition; } }
 	bool resize;
 	public Vector2 scrollPosition;
 	Rect availableRect;
 
+    public override string ToString() {
+        return ("Normalized: " + _splitNormalizedPosition + ", availRect: " + availableRect + ", ScrollPos: " + scrollPosition);
+    }
 
-	public EditorGUISplitView(Direction splitDirection) {
-		splitNormalizedPosition = 0.5f;
+    public EditorGUISplitView(Direction splitDirection) {
+		_splitNormalizedPosition = 0.5f;
 		this.splitDirection = splitDirection;
 	}
 
@@ -34,9 +38,9 @@ public class EditorGUISplitView
 			availableRect = tempRect;
 		}
 		if(splitDirection == Direction.Horizontal)
-			scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Width(availableRect.width * splitNormalizedPosition));
+			scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Width(availableRect.width * _splitNormalizedPosition));
 		else
-			scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(availableRect.height * splitNormalizedPosition));
+			scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(availableRect.height * _splitNormalizedPosition));
 	}
 
 	public void Split() {
@@ -57,9 +61,9 @@ public class EditorGUISplitView
 		Rect resizeHandleRect;
 
 		if(splitDirection == Direction.Horizontal)
-			resizeHandleRect = new Rect (availableRect.width * splitNormalizedPosition, availableRect.y, 2f, availableRect.height);
+			resizeHandleRect = new Rect (availableRect.width * _splitNormalizedPosition, availableRect.y, 2f, availableRect.height);
 		else
-			resizeHandleRect = new Rect (availableRect.x,availableRect.height * splitNormalizedPosition, availableRect.width, 2f);
+			resizeHandleRect = new Rect (availableRect.x,availableRect.height * _splitNormalizedPosition, availableRect.width, 2f);
 
 		GUI.DrawTexture(resizeHandleRect,EditorGUIUtility.whiteTexture);
 
@@ -73,9 +77,9 @@ public class EditorGUISplitView
 		}
 		if(resize){
 			if(splitDirection == Direction.Horizontal)
-				splitNormalizedPosition = Event.current.mousePosition.x / availableRect.width;
+				_splitNormalizedPosition = Event.current.mousePosition.x / availableRect.width;
 			else
-				splitNormalizedPosition = Event.current.mousePosition.y / availableRect.height;
+				_splitNormalizedPosition = Event.current.mousePosition.y / availableRect.height;
 		}
 		if(Event.current.type == EventType.MouseUp)
 			resize = false;        
