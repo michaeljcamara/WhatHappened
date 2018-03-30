@@ -18,9 +18,11 @@ public class DependencyWindow : EditorWindow {
 
     private static DependencyWindow window;
     private DependencyAnalyzer analyzer;
+    private GitAnalyzer gitAnalyzer;
     public Rect m_backgroundRect;
     bool isStyleInit;
-    int index, prevIndex;
+    int typeIndex, prevTypeIndex;
+    int commitIndex, prevCommitIndex;
     private GUIStyle style;
     private GUISkin skin;
 
@@ -32,6 +34,7 @@ public class DependencyWindow : EditorWindow {
     Dictionary<int, int> nodesPerLevel;
     CustomTypeNode selectedNode;
     Dictionary<int, LinkedList<CustomTypeNode>> allNodes;
+    HashSet<CustomFile> allFiles;
 
     Vector2 scrollPosition = Vector2.zero;
     float baseBoxWidth = 50;
@@ -39,6 +42,7 @@ public class DependencyWindow : EditorWindow {
 
     bool isFirstFrameDrawn = true;
     float yPad = 0, xPad = 50;
+    string[] commitNames;
 
     private void Awake() {
         Debug.LogWarning("NOW AWAKE!!");
@@ -46,24 +50,32 @@ public class DependencyWindow : EditorWindow {
 
     private void OnEnable() {
         Debug.LogWarning("ENABLEEEEED");
-        Debug.Log("STYLE BEFORE INIT: " + style);
+        
+        if(window == null) {
+            //Init();
+        }
 
         analyzer = new DependencyAnalyzer();
+        gitAnalyzer = new GitAnalyzer();
 
-        //nodesPerLevel = new Dictionary<int, int>();
+        //commitNames = new List<string>(gitAnalyzer.commitList.Count + 1);
+        commitNames = new string[gitAnalyzer.commitList.Count + 1];
+        //commitNames.Add("NOTHING SELECTED");
+        commitNames[0] = "NOTHING SELECTED";
+        for(int i = 0; i < gitAnalyzer.commitList.Count; i++) {
+            //foreach(LibGit2Sharp.Commit c in gitAnalyzer.commitList) {
+            //commitNames.Add(c.Author.When + ", " + c.Author.Name + ": " + c.MessageShort);
+            LibGit2Sharp.Commit c = gitAnalyzer.commitList[i];
+            //string commitName = (i+1) + ": " + c.Author.When.DateTime.ToString("F") + ", " + c.Author.Name + ": " + c.MessageShort;
+            //string commitName = (i + 1) + ": " + c.Author.When.DateTime.ToString("F") + ", " + c.Author.Name + ": " + c.Message;
+            string commitName = (i + 1) + ": [" + c.Author.When.DateTime.ToString("g") + "] (" + c.Author.Name + "): " + c.Message;
+            commitName = commitName.Replace("/", "-"); // The EditorGUILayout.PopUp uses '/' to branch the selection, which I dont want
+            commitName = commitName.Substring(0, Mathf.Min(100, commitName.Length)) + "...";
+            //commitNames[i + 1] = c.Author.Name + ", " + i;
+            commitNames[i + 1] = commitName;
+        }
 
-        ////**MOVE THIS TO ONGUI...CLICKED???
-        //Dictionary<string, CustomType>.ValueCollection customTypes = analyzer.GetAllCustomTypes();
-        //typeNames = new string[customTypes.Count];
-        //int typeIndex = 0;
-        //foreach (CustomType t in customTypes) {
-        //    typeNames[typeIndex] = t.simplifiedFullName;
-        //    typeIndex++;
-        //}
-        //positionOffset = Vector2.zero;
-        //zoomLevel = 0;
-
-        Reset();
+        ResetTree();
     }
 
     private void OnDisable() {
@@ -153,38 +165,27 @@ public class DependencyWindow : EditorWindow {
         GUI.color = Color.gray;
         GUI.Box(m_backgroundRect, "");
 
-        index = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Root:", index, typeNames);
-        if (index != prevIndex) {
-            Reset();
-            prevIndex = index;
-        }
-
         DrawNodes();
-
 
         horizontalSplitView.Split();
 
         verticalSplitView.BeginSplitView();
 
         GUILayout.BeginHorizontal();
-
         GUILayout.FlexibleSpace();
-
         GUILayout.BeginVertical();
-
         GUILayout.FlexibleSpace();
 
-        GUILayout.Label("Centered text");
-
+        CreateOptionsPanel();
+        //GUILayout.Label("Centered text");
+        
         GUILayout.FlexibleSpace();
-
         GUILayout.EndVertical();
-
         GUILayout.FlexibleSpace();
-
         GUILayout.EndHorizontal();
 
         verticalSplitView.Split();
+
         GUILayout.BeginHorizontal();
         GUILayout.Label("Centered text");
         GUILayout.EndHorizontal();
@@ -192,27 +193,59 @@ public class DependencyWindow : EditorWindow {
         horizontalSplitView.EndSplitView();
 
         Repaint();
-
-        Debug.LogError("ENDFRAME");
     }
 
-    void Reset() {
+    void CreateOptionsPanel() {
 
+        //typeIndex = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Select Type:", typeIndex, typeNames);
+        typeIndex = EditorGUILayout.Popup("Select Type:", typeIndex, typeNames);
+
+        if (typeIndex != prevTypeIndex) {
+            ResetTree();
+            prevTypeIndex = typeIndex;
+        }
+
+        //commitIndex = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Select Past Commit:", commitIndex, commitNames);
+        commitIndex = EditorGUILayout.Popup("Select Past Commit:", commitIndex, commitNames);
+        if (commitIndex != prevCommitIndex && commitIndex != 0) {
+            //Reset();
+            DiffFilesInTree();
+            prevCommitIndex = commitIndex;
+        }
+        //TODO how to do tooltip
+
+    }
+
+    void DiffFilesInTree() {
+        foreach(CustomFile f in allFiles) {
+            gitAnalyzer.DiffFile(f, commitIndex - 1); // -1 since index 0 is just "NO SELECTION"
+        }
+    }
+    
+
+    void ResetTree() {
+        
         isFirstFrameDrawn = true;
         maxNodesPerLevel = 0;
         yPad = 0;
         nodesPerLevel = new Dictionary<int, int>();
+        allFiles = new HashSet<CustomFile>();
+        Debug.Log("Is analyzer null?: " + analyzer + ", " + ((analyzer == null) ? "NULL" : "NOT NULL"));
         Dictionary<string, CustomType>.ValueCollection customTypes = analyzer.GetAllCustomTypes();
         typeNames = new string[customTypes.Count];
-        int typeIndex = 0;
+
+        CustomType chosenType = null;
+        int i = 0;
         foreach (CustomType t in customTypes) {
-            typeNames[typeIndex] = t.simplifiedFullName;
-            typeIndex++;
+            if (i == typeIndex) {
+                chosenType = DependencyAnalyzer.GetCustomTypeFromString(t.simplifiedFullName);
+            }
+            typeNames[i] = t.simplifiedFullName + " (in file: " + t.file + ")";
+            i++;
         }
         positionOffset = Vector2.zero;
         zoomLevel = 0;
 
-        CustomType chosenType = DependencyAnalyzer.GetCustomTypeFromString(typeNames[index]);
         allNodes = CreateDependencyTree(chosenType, null, new LinkedList<CustomType>(), new Dictionary<int, LinkedList<CustomTypeNode>>(), 0);
 
         int nodeCount = 0;
@@ -242,6 +275,12 @@ public class DependencyWindow : EditorWindow {
             allNodes[level].AddLast(node);
         }
 
+        Debug.Log("Type in tree: " + type);
+        //Debug.Log("   Is File null?: " + ((type.file == null) ? "TRUE" : "FALSE"));
+        //Debug.Log("   FileInfo from Type: " + type.file.info);
+        //Debug.Log("     FileName from Type: " + type.file.info.FullName);
+        allFiles.Add(type.file);
+
         HashSet<CustomType> dependencies = type.GetDependencies();
 
         if (currentBranch.Contains(type)) {
@@ -254,6 +293,7 @@ public class DependencyWindow : EditorWindow {
                 //CreateDependencyTree(stack, allNodes, level + 1);            
                 CreateDependencyTree(dependency, node, currentBranch, allNodes, level + 1);
             }
+            currentBranch.RemoveLast();
         }
 
         return allNodes;

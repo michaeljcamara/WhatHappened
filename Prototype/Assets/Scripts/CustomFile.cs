@@ -48,6 +48,10 @@ public class CustomFile {
 
     public string name { get { return _info.Name; } }
 
+    public override string ToString() {
+        return _info.Name;
+    }
+
     public CustomFile(FileInfo file) {
         this._info = file;
     }
@@ -64,7 +68,7 @@ public class CustomFile {
         //int lastIndex = 0;
         for (int i = 0; i < topLevelTypes.Count; i++) {
             CustomType currentType = topLevelTypes[i];
-            Debug.Log("*** TOP LEVEL TYPE: " + currentType);
+            //Debug.Log("*** TOP LEVEL TYPE: " + currentType);
             //chosenType = GetDeepestNestedTypeAtLineNum(currentType, lineNum);
             chosenType = currentType.GetDeepestNestedTypeAtLineNum(lineNum);
             if (chosenType != null) {

@@ -109,8 +109,9 @@ public class CustomType {
                 Type currentType = nestedTypes[i];
                 //rem nested notation namespace.is.here.Then+Outer+Inner;
                 string simplifiedName = SimplifyTypeFullName(currentType);
+                //CustomType customType = DependencyAnalyzer.GetCustomTypeFromString(simplifiedName);
                 CustomType customType = DependencyAnalyzer.GetCustomTypeFromString(simplifiedName);
-                if(customType != null) {
+                if (customType != null) {
                     nestedCustomTypes[i] = customType;
                 }
                 else {

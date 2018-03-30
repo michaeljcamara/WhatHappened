@@ -22,6 +22,15 @@ public class DependencyAnalyzer {
         }
     }
 
+    //public CustomType GetCustomTypeFromString(string typeName) {
+    //    if (customTypeLookup.ContainsKey(typeName)) {
+    //        return customTypeLookup[typeName];
+    //    }
+    //    else {
+    //        return null;
+    //    }
+    //}
+
     public Dictionary<string, CustomType>.ValueCollection GetAllCustomTypes() {
         return customTypeLookup.Values;
     }
@@ -189,30 +198,32 @@ public class DependencyAnalyzer {
         //CustomType ct = cf.GetDeepestNestedTypeAtLineNum(customTypeLookup["ClassB"], lineNum);
         //Debug.LogError("***Type at line " + lineNum + ": " + ct.type.Name);
 
-        CustomType ct = customTypeLookup["ClassB"];
-        int lineNum = 71;
-        CustomType deepestType = ct.GetDeepestNestedTypeAtLineNum(lineNum);
-        Debug.LogError("***Type at line " + lineNum + ": " + deepestType.type.FullName);
-        CustomMethod deepestMethod = deepestType.GetMethodAtLineNum(lineNum);
-        if (deepestMethod == null) {
-            Debug.LogError("  MethodThere: " + "NULL");
-        }
-        else {
-            Debug.LogError("  MethodThere: " + deepestMethod.info.Name);
-        }
+        //DEBUGSTART
+        //CustomType ct = customTypeLookup["ClassB"];
+        //int lineNum = 71;
+        //CustomType deepestType = ct.GetDeepestNestedTypeAtLineNum(lineNum);
+        //Debug.LogError("***Type at line " + lineNum + ": " + deepestType.type.FullName);
+        //CustomMethod deepestMethod = deepestType.GetMethodAtLineNum(lineNum);
+        //if (deepestMethod == null) {
+        //    Debug.LogError("  MethodThere: " + "NULL");
+        //}
+        //else {
+        //    Debug.LogError("  MethodThere: " + deepestMethod.info.Name);
+        //}
 
-        CustomType typeAtLine = ct.file.GetTypeByLineNumber(lineNum);
-        Debug.Log(" Type at line: " + typeAtLine);
-        CustomMethod methodAtLine = null;
-        if (typeAtLine != null) {
-            methodAtLine = typeAtLine.GetMethodAtLineNum(lineNum);
-            if (methodAtLine != null) {
-                Debug.Log(" Method at line: " + methodAtLine.info.Name);
-            }
-            else {
-                Debug.Log("Method null");
-            }
-        }
+        //CustomType typeAtLine = ct.file.GetTypeByLineNumber(lineNum);
+        //Debug.Log(" Type at line: " + typeAtLine);
+        //CustomMethod methodAtLine = null;
+        //if (typeAtLine != null) {
+        //    methodAtLine = typeAtLine.GetMethodAtLineNum(lineNum);
+        //    if (methodAtLine != null) {
+        //        Debug.Log(" Method at line: " + methodAtLine.info.Name);
+        //    }
+        //    else {
+        //        Debug.Log("Method null");
+        //    }
+        //}
+        //GOODDEBUGEND
 
         //foreach (CustomType cts in cf.GetTypesInFile()) {
         //    Debug.Log("  TYpes in file: " + cts.type.FullName);
@@ -223,7 +234,9 @@ public class DependencyAnalyzer {
         //    }
         //    Debug.Log("Length of nestedCts: " + nestedCt.Length);
         //}
-        GitDiffFile();
+
+
+        //GitDiffFile();
 
         //NodeEditorFramework.NodeCanvas asdf = new NodeEditorFramework.NodeCanvas();
 
@@ -260,7 +273,6 @@ public class DependencyAnalyzer {
         }
         Debug.Log("This is the git dir: " + gitDir.FullName);
         Repository repo = new Repository(gitDir.FullName);
-
 
         CustomFile chosenFile = customTypeLookup["ClassB"].file;
 
@@ -598,9 +610,16 @@ public class DependencyAnalyzer {
 
     private List<CustomType> ExtractTypesFromFile(CustomFile file) {
         //TEMP
-        if (!file.name.Equals("ClassB.cs")) {
+        //if (!file.name.Equals("ClassB.cs")) {
+        //    return null;
+        //}
+
+        Debug.Log("FILE NAME IN EXTRACT IS:" + file.name);
+        if (!file.name.Equals("ClassB.cs") && !file.name.Equals("ClassA.cs") && !file.name.Equals("ClassC.cs")) {
+            //Debug.Log("Equals ClassB.cs?: " + (file.name.Equals("ClassB.cs")) + ", " + (file.name == "ClassB.cs"));
             return null;
         }
+        Debug.Log("Extracting from :" + file.info.FullName);
 
         List<CustomType> typesInFile = new List<CustomType>();
 
