@@ -1,4 +1,8 @@
-﻿using UnityEngine;
+﻿// Script originally authored by UnityList contributor, miguel12345
+// https://unitylist.com/p/210/Editor-GUI-Split-View
+// Modified slightly by Michael Camara
+
+using UnityEngine;
 using System.Collections;
 using UnityEditor;
 
