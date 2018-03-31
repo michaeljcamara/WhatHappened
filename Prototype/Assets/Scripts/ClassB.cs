@@ -89,7 +89,6 @@ public class ClassB : MonoBehaviour {
 
     // Use this for initialization
     void Start () {
-        DependencyAnalyzer analyzer = new DependencyAnalyzer();
 	}
 	
 	// Update is called once per frame
