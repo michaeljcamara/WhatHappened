@@ -318,6 +318,10 @@ namespace WhatHappened {
 
             Debug.LogWarning("Iterating all .cs files in Assets");
             foreach (FileInfo f in csFiles) {
+                if (f.FullName.Contains("WhatHappened")) {
+                    Debug.LogWarning("Skipping File: " + f);
+                    continue;
+                }
                 Debug.LogWarning("f: " + f + ", name: " + f.Name + ", fullName: " + f.FullName + ", length: " + f.Length);
                 //output: f: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts\ClassC.cs, name: ClassC.cs, fullName: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts\ClassC.cs, length: 276
 
@@ -327,10 +331,6 @@ namespace WhatHappened {
 
                 List<CustomType> typesInFile = ExtractTypesFromFile(customFile);
                 customFile.SetTypesInFile(typesInFile);
-            }
-
-            foreach (string typeString in typesAsStrings) {
-                //TODO figure out what return types from libgit2sharp diff/log are
             }
 
             //CustomFile cf = customTypeLookup["ClassB"].file;
@@ -756,11 +756,11 @@ namespace WhatHappened {
 
             Debug.Log("FILE NAME IN EXTRACT IS:" + file.name);
             //TODO GENERALIZE THIS!!! //ideally exclude files in ../WhatHappened/etc
-            if (!file.name.Equals("ClassB.cs") && !file.name.Equals("ClassA.cs") && !file.name.Equals("ClassC.cs") && !file.name.Equals("ClassD.cs")) {
-                //Debug.Log("Equals ClassB.cs?: " + (file.name.Equals("ClassB.cs")) + ", " + (file.name == "ClassB.cs"));
-                return null;
-            }
-            Debug.Log("Extracting from :" + file.info.FullName);
+            //if (!file.name.Equals("ClassB.cs") && !file.name.Equals("ClassA.cs") && !file.name.Equals("ClassC.cs") && !file.name.Equals("ClassD.cs")) {
+            //    //Debug.Log("Equals ClassB.cs?: " + (file.name.Equals("ClassB.cs")) + ", " + (file.name == "ClassB.cs"));
+            //    return null;
+            //}
+            //Debug.Log("Extracting from :" + file.info.FullName);
 
             List<CustomType> typesInFile = new List<CustomType>();
 

@@ -39,8 +39,8 @@ namespace WhatHappened {
         HashSet<CustomFile> allFiles;
 
         Vector2 scrollPosition = Vector2.zero, detailsScrollPosition = Vector2.zero;
-        float baseBoxWidth = 50;
-        float baseBoxHeight = 50;
+        float baseBoxWidth = 75;
+        float baseBoxHeight = 75; 
 
         bool isFirstFrameDrawn = true;
         float yPad = 0, xPad = 50;
@@ -131,18 +131,18 @@ namespace WhatHappened {
 
         private void HandleInput() {
 
-            if (Event.current.type == EventType.ScrollWheel) {
-                if (Event.current.delta.y > 0) {
-                    zoomLevel--;
-                    Debug.LogWarning("ZOOM OUT");
-                }
-                else {
-                    zoomLevel++;
-                    Debug.LogWarning("ZOOM IN");
-                }
+            //if (Event.current.type == EventType.ScrollWheel) {
+            //    if (Event.current.delta.y > 0) {
+            //        zoomLevel--;
+            //        Debug.LogWarning("ZOOM OUT");
+            //    }
+            //    else {
+            //        zoomLevel++;
+            //        Debug.LogWarning("ZOOM IN");
+            //    }
 
-                Debug.Log("Zoom level = " + zoomLevel);
-            }
+            //    Debug.Log("Zoom level = " + zoomLevel);
+            //}
 
             //TODO TEST THIS WITH DOCKED WINDOW!!
             if (Event.current.type == EventType.KeyDown) {
@@ -164,11 +164,18 @@ namespace WhatHappened {
                         positionOffset -= new Vector2(0, panStep);
                         break;
                     case KeyCode.PageUp:
-                        zoomLevel++;
+                        if(!Event.current.modifiers.ToString().Contains("Shift")) {
+                            zoomLevel++;
+                        }
+                        style.fontSize++;
+                        
                         Debug.LogWarning("ZOOM IN");
                         break;
                     case KeyCode.PageDown:
-                        zoomLevel--;
+                        if (!Event.current.modifiers.ToString().Contains("Shift")) {
+                            zoomLevel--;
+                        }
+                        style.fontSize--;
                         Debug.LogWarning("ZOOM OUT");
                         break;
                 }
@@ -271,7 +278,7 @@ namespace WhatHappened {
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            bool clickedOpenType = GUILayout.Button(t.ToString() + " (in file: " + t.file.name + ")");
+            bool clickedOpenType = GUILayout.Button(t.ToString() + " (in file: " + t.file + ")");
             if (clickedOpenType) {
                 Debug.LogWarning("Attempting to open: " + t);
                 t.file.OpenFileInEditor(t.startLineNum);
@@ -476,7 +483,9 @@ namespace WhatHappened {
             }
             else if (isFirstFrameDrawn) {
                 yPad = 0;
-                scrollPosition.y = scaledTreeHeight / 2f;
+                //yPad = scaledRect.height / 2f - scaledTreeHeight / 2f;
+                Debug.LogWarning("************* TreeHeight: " + scaledTreeHeight + ", RectHeight: " + scaledRect.height);
+                scrollPosition.y = scaledTreeHeight / 4;
             }
             isFirstFrameDrawn = false;
 
