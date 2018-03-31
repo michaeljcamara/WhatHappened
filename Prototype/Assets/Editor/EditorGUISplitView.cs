@@ -15,9 +15,10 @@ public class EditorGUISplitView
 	}
 
 	Direction splitDirection;
-	float _splitNormalizedPosition;
-    public float splitNormalizedPosition { get { return _splitNormalizedPosition; } }
-	bool resize;
+    float _splitNormalizedPosition;
+    public float splitNormalizedPosition { get { return _splitNormalizedPosition; } set { _splitNormalizedPosition = value; } }
+    //public float splitNormalizedPosition { get { return _splitNormalizedPosition; } }
+    bool resize;
 	public Vector2 scrollPosition;
 	Rect availableRect;
 

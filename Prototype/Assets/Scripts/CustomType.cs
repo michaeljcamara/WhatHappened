@@ -4,13 +4,13 @@ using UnityEngine;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Linq;
 
 public class CustomType {
 
     //TODO change to readonly properties
 
     public Type type;
-    public bool bHasChanged;
     public CustomFile file;
     public int additionsInMethods, additionsOutsideMethods, deletionsInMethods, deletionsOutsideMethods;
     public int totalAdditions { get { return additionsInMethods + additionsOutsideMethods; } }
@@ -18,6 +18,7 @@ public class CustomType {
     public int totalChangesInMethods { get { return additionsInMethods + deletionsInMethods; } }
     public int totalChangesOutsideMethods { get { return additionsOutsideMethods + deletionsOutsideMethods; } }
     public int totalLineChanges { get { return totalAdditions + totalDeletions; } }
+    public bool hasChanged { get { return (totalLineChanges > 0); } }
 
     private string _simplifiedFullName;
     public string simplifiedFullName { get {
@@ -55,6 +56,13 @@ public class CustomType {
                 methods.Add(new CustomMethod(method));
             }
             
+        }
+    }
+
+    public void ClearPreviousChanges() {
+        additionsInMethods = additionsOutsideMethods = deletionsInMethods = deletionsOutsideMethods = 0;
+        foreach(CustomMethod m in methods) {
+            m.ClearPreviousChanges();
         }
     }
 
@@ -178,5 +186,11 @@ public class CustomType {
         }
 
         return chosenMethod;
+    }
+
+
+    public IEnumerable<CustomMethod> GetSortedMethodsByChanges() {
+        // Returns new list, original is unmodified (important for parsing)
+        return methods.OrderByDescending(i => i.totalChanges);
     }
 }

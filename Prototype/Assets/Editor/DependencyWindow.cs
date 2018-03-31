@@ -28,21 +28,26 @@ public class DependencyWindow : EditorWindow {
 
     EditorGUISplitView horizontalSplitView = new EditorGUISplitView(EditorGUISplitView.Direction.Horizontal);
     EditorGUISplitView verticalSplitView = new EditorGUISplitView(EditorGUISplitView.Direction.Vertical);
+    EditorGUISplitView detailsSplitView = new EditorGUISplitView(EditorGUISplitView.Direction.Vertical);
 
     //TODO
     int maxNodesPerLevel;
     Dictionary<int, int> nodesPerLevel;
-    CustomTypeNode selectedNode;
+    CustomTypeNode selectedNode, prevSelectedNode;
     Dictionary<int, LinkedList<CustomTypeNode>> allNodes;
     HashSet<CustomFile> allFiles;
 
-    Vector2 scrollPosition = Vector2.zero;
+    Vector2 scrollPosition = Vector2.zero, detailsScrollPosition = Vector2.zero;
     float baseBoxWidth = 50;
     float baseBoxHeight = 50;
 
     bool isFirstFrameDrawn = true;
     float yPad = 0, xPad = 50;
     string[] commitNames;
+
+    CustomTypeNode specialNode;
+    EventType previousEvent;
+    GUIStyle labelStyle;
 
     private void Awake() {
         Debug.LogWarning("NOW AWAKE!!");
@@ -52,11 +57,15 @@ public class DependencyWindow : EditorWindow {
         Debug.LogWarning("ENABLEEEEED");
         
         if(window == null) {
-            //Init();
+            Init();
         }
 
         analyzer = new DependencyAnalyzer();
         gitAnalyzer = new GitAnalyzer();
+
+        verticalSplitView.splitNormalizedPosition = 0.2f;
+        //verticalSplitView.scrollPosition = new Vector2(0, 500);
+
 
         //commitNames = new List<string>(gitAnalyzer.commitList.Count + 1);
         commitNames = new string[gitAnalyzer.commitList.Count + 1];
@@ -75,6 +84,9 @@ public class DependencyWindow : EditorWindow {
             commitNames[i + 1] = commitName;
         }
 
+        commitIndex = 0;
+        typeIndex = 0; 
+
         ResetTree();
     }
 
@@ -89,25 +101,29 @@ public class DependencyWindow : EditorWindow {
         style.fontSize = 12;
         style.alignment = TextAnchor.MiddleCenter;
 
+        labelStyle = new GUIStyle(GUI.skin.label);
+        labelStyle.fontStyle = FontStyle.Bold;
+        labelStyle.fontSize = 13;
+
         skin = ScriptableObject.CreateInstance<GUISkin>();
         skin.box = style;
         skin.label = style;
         skin.font = style.font;
 
+        
+
         isStyleInit = true;
     }
 
-    [MenuItem("Window/Michael Camara/Dependency Window")]
+    [MenuItem("Window/WhatHappened")]
     public static void Init() {
         Debug.LogError("INITTING WINDOW");
-        window = (DependencyWindow) EditorWindow.GetWindow<DependencyWindow>();
+        window = (DependencyWindow)EditorWindow.GetWindow<DependencyWindow>("WhatHappened");
         window.Show();
         window.minSize = new Vector2(600, 600);
     }
 
-
- 
-    private void HandleInput() {
+        private void HandleInput() {
 
         if (Event.current.type == EventType.ScrollWheel) {
             if (Event.current.delta.y > 0) {
@@ -151,13 +167,36 @@ public class DependencyWindow : EditorWindow {
                     break;
             }
         }
+
+        if (previousEvent == EventType.Layout) {
+            if (Event.current.type == EventType.MouseDown) {
+
+                Vector2 mousePos = Event.current.mousePosition;
+
+                foreach (LinkedList<CustomTypeNode> nodeList in allNodes.Values) {
+                    foreach (CustomTypeNode n in nodeList) {
+                        if (n.rect.Contains(mousePos + scrollPosition)) {
+                            Debug.LogWarning("CLICKED ON : " + n.type);
+                            //prevSelectedNode = selectedNode;
+                            //selectedNode = n;
+                            specialNode = n;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (previousEvent == EventType.Repaint) {
+            selectedNode = specialNode;
+        }
     }
 
     void OnGUI() {
+
         if (!isStyleInit) {
             InitGUIStyle();
         }
-
+        
         HandleInput();
 
         horizontalSplitView.BeginSplitView();
@@ -171,48 +210,151 @@ public class DependencyWindow : EditorWindow {
 
         verticalSplitView.BeginSplitView();
 
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
+        //GUILayout.BeginHorizontal();
+        //GUILayout.FlexibleSpace();
         GUILayout.BeginVertical();
-        GUILayout.FlexibleSpace();
+        //GUILayout.FlexibleSpace();
 
         CreateOptionsPanel();
-        //GUILayout.Label("Centered text");
         
-        GUILayout.FlexibleSpace();
+        //GUILayout.FlexibleSpace();
         GUILayout.EndVertical();
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
+        //GUILayout.FlexibleSpace();
+        //GUILayout.EndHorizontal();
 
         verticalSplitView.Split();
 
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Centered text");
-        GUILayout.EndHorizontal();
+        GUILayout.BeginVertical();
+        CreateDetailsPanel();
+        GUILayout.EndVertical();
         verticalSplitView.EndSplitView();
         horizontalSplitView.EndSplitView();
 
         Repaint();
+        previousEvent = Event.current.type;
+    }
+
+    void CreateDetailsPanel() {
+
+        //TODO ONLY IF SELECTEDNODE !+ PREVSELECTEDNODE
+        //if (selectedNode == prevSelectedNode) {
+        //    return;
+        //}
+        //prevSelectedNode = selectedNode; 
+
+        if (selectedNode == null) {
+            //detailsScrollPosition = GUI.BeginScrollView(new Rect(0, 0, window.position.width * horizontalSplitView.splitNormalizedPosition, window.position.height), scrollPosition, scaledRect);
+            detailsScrollPosition = GUILayout.BeginScrollView(detailsScrollPosition);
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            GUILayout.Label("-- Selected Node Details --", labelStyle);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            GUILayout.EndScrollView();
+            return;
+        }
+
+        CustomType t = selectedNode.type;
+
+        //detailsSplitView.BeginSplitView();
+
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        GUILayout.Label("-- " + t + " Node Details -- (click to open)", labelStyle);
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        bool clickedOpenType = GUILayout.Button(t.ToString());
+        if(clickedOpenType) {
+            Debug.LogWarning("Attempting to open: " + t);
+            t.file.OpenFileInEditor(t.startLineNum);
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.Label("    Total Changes: " + t.totalLineChanges);
+        GUILayout.Label("    Changes Outside Methods: " + t.totalChangesOutsideMethods);
+        GUILayout.Label("        Additions: " + t.additionsOutsideMethods);
+        GUILayout.Label("        Deletions: " + t.deletionsOutsideMethods);
+        GUILayout.Label("    Changes Inside Methods: " + t.totalChangesInMethods);
+        GUILayout.Label("        Additions: " + t.additionsInMethods);
+        GUILayout.Label("        Deletions: " + t.deletionsInMethods);
+
+        //detailsSplitView.Split();
+        //GUILayout.Box("", GUILayout.ExpandWidth(true));
+        GUILayout.Box("", GUILayout.Height(3), GUILayout.ExpandWidth(true));
+        
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        GUILayout.Label("-- Method Details -- (click to open)", labelStyle);
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        detailsScrollPosition = GUILayout.BeginScrollView(detailsScrollPosition);
+        //GUILayout.Space(10);
+
+        bool startedUnchanged = false;
+        int methodIndex = 0;
+        foreach (CustomMethod m in t.GetSortedMethodsByChanges()) {
+            if(startedUnchanged == false) {
+                if (m.totalChanges == 0) {
+                    GUILayout.Label("-- UNCHANGED METHODS --", labelStyle);
+                    startedUnchanged = true;
+                }
+                else if (methodIndex == 0) {
+                    GUILayout.Label("-- CHANGED METHODS --", labelStyle);
+                }
+            }
+            //TODO HOW TO START CHANGED METHODS 
+
+            GUILayout.BeginHorizontal();
+            
+            bool clickedOpenMethod = GUILayout.Button(m.GetSimplifiedMethodSignature() + ":", GUILayout.ExpandWidth(false));
+            if (clickedOpenMethod) {
+                Debug.LogWarning("Attempting to open: " + m + " at :" + m.startLineNum);
+                //t.file.OpenFileInEditor(m.startLineNum);
+                t.file.OpenFileInEditor(m.startLineNum); 
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.Label("    Total Changes: " + m.totalChanges);
+            GUILayout.Label("        Additions: " + m.additions);
+            GUILayout.Label("        Deletions: " + m.deletions);
+
+            methodIndex++;
+        }
+        
+        GUILayout.EndScrollView();
+        //detailsSplitView.EndSplitView();
+
     }
 
     void CreateOptionsPanel() {
+        GUI.color = Color.cyan;
 
-        //typeIndex = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Select Type:", typeIndex, typeNames);
-        typeIndex = EditorGUILayout.Popup("Select Type:", typeIndex, typeNames);
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        GUILayout.Label("-- WhatHappened Options --", labelStyle);
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayoutOption[] popupOptions = { GUILayout.ExpandWidth(true) };//, GUILayout.ExpandHeight(true) };
+
+        typeIndex = EditorGUILayout.Popup("Select Root Type:", typeIndex, typeNames);
+
 
         if (typeIndex != prevTypeIndex) {
             ResetTree();
             prevTypeIndex = typeIndex;
         }
 
-        //commitIndex = EditorGUI.Popup(new Rect(0, 0, position.width, 20), "Select Past Commit:", commitIndex, commitNames);
         commitIndex = EditorGUILayout.Popup("Select Past Commit:", commitIndex, commitNames);
-        if (commitIndex != prevCommitIndex && commitIndex != 0) {
-            //Reset();
+
+        if (commitIndex != prevCommitIndex) {
+            
             DiffFilesInTree();
             prevCommitIndex = commitIndex;
         }
-        //TODO how to do tooltip
+        
+        //TODO FILTER BUTTON!!!!!!!!!
 
     }
 
@@ -224,7 +366,9 @@ public class DependencyWindow : EditorWindow {
     
 
     void ResetTree() {
-        
+        selectedNode = null;
+        specialNode = null;
+        prevSelectedNode = null;
         isFirstFrameDrawn = true;
         maxNodesPerLevel = 0;
         yPad = 0;
@@ -301,7 +445,7 @@ public class DependencyWindow : EditorWindow {
 
 
     void DrawNodes() {
-        GUI.color = Color.cyan;
+        GUI.color = Color.white;
 
         float scaledBoxWidth = baseBoxWidth + baseBoxWidth * (zoomeScaleStep * zoomLevel);
         float scaledBoxHeight = baseBoxHeight + baseBoxHeight * (zoomeScaleStep * zoomLevel);
@@ -334,7 +478,27 @@ public class DependencyWindow : EditorWindow {
             foreach (CustomTypeNode node in pair.Value) {
                 //Debug.Log("Drawing: " + node.type.simplifiedFullName + ", level: " + level + ", Index: " + nodeIndex);
                 node.rect = new Rect(xPad + xStep * level, yPad + (nodeIndex + 1) * yStep + (nodeIndex * scaledBoxHeight), scaledBoxWidth, scaledBoxHeight);
+
+                // Draw outline around node (by putting a bigger yellow box behind it)
+                if (node == selectedNode) {
+                    GUI.color = Color.yellow;
+                    Rect biggerRect = new Rect(node.rect);
+                    biggerRect.size *= 1.2f;
+                    biggerRect.center = node.rect.center;
+                    GUI.Box(biggerRect, node.type.simplifiedFullName, style);
+                }
+             
+                if (node.type.hasChanged) {
+                    //TODO gradation based on impact strength
+                    GUI.color = Color.red;
+                }
+                else {
+                    GUI.color = Color.white;
+                }
+
                 GUI.Box(node.rect, node.type.simplifiedFullName, style);
+
+                
 
                 if(node.parent != null) {
 

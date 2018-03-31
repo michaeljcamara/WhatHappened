@@ -9,6 +9,8 @@ public class CustomMethod {
 
     public int startLineNum, endLineNum;
     public int additions, deletions;
+    public int totalChanges { get { return additions + deletions; } }
+    public bool hasChanegd { get { return (totalChanges > 0); } }
 
     public MethodInfo info;
 
@@ -19,6 +21,11 @@ public class CustomMethod {
 
     private Regex _regex;
     public Regex regex { get { return _regex;}}
+    private string methodSignature;
+
+    public void ClearPreviousChanges() {
+        additions = deletions = 0;
+    }
 
     //MAke method for returning regex
     //Account for primitive types, e.g. "int" appears as "Int32" in assembly
@@ -235,5 +242,14 @@ public class CustomMethod {
 
     public override string ToString() {
         return info.Name;
+    }
+
+    public void SetSimplifiedMethodSignature(string sig) {
+        //methodSignature = sig;
+        methodSignature = Regex.Replace(sig, @"\s+", " "); //TODO assess perf
+    }
+
+    public string GetSimplifiedMethodSignature() {
+        return methodSignature;
     }
 }

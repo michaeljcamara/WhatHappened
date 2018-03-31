@@ -42,6 +42,13 @@ public class GitAnalyzer {
     }
 
     public void DiffFile(CustomFile file, int commitIndex){
+
+        file.ClearPreviousChanges();
+
+        // Return if user selected "NO SELECTION" index
+        if(commitIndex == -1) {
+            return;
+        }
         
         LibGit2Sharp.Tree chosenTree2 = commitList[commitIndex].Tree;
 
@@ -56,6 +63,7 @@ public class GitAnalyzer {
         Patch patch = repo.Diff.Compare<Patch>(chosenTree2, DiffTargets.WorkingDirectory, new List<string> { file.relPath }, pathOptions, compareOptions);
         PatchEntryChanges changes = patch[file.relPath]; //WORKS if correct relpath
         string patchText = changes.Patch; // If no changes b/w commits, then "", or if notIncludeModified, null changes
+        file.SetDiffText(patchText);
         Debug.LogError("***THEPATCH: " + patchText);
 
         // WORKS  all hunk in one long string
@@ -85,9 +93,6 @@ public class GitAnalyzer {
                 CustomMethod methodAtLine = null;
                 if (typeAtLine != null) {
                     methodAtLine = typeAtLine.GetMethodAtLineNum(lineNum);
-                    if (methodAtLine != null) {
-                        //Debug.Log(" Method at line: " + methodAtLine.info.Name);
-                    }
                 }
 
                 switch (line[0]) {

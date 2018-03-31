@@ -27,18 +27,29 @@ public class CustomFile {
     }
 
     private static Uri projectUri = new Uri(Path.GetFullPath("."));
+    private static Uri assetsUri = new Uri(Application.dataPath);
 
     public string fullPath { get { return info.FullName; } }
+
+    private string _assetsRelPath;
+    public string assetsRelPath {
+        get {
+            if (_assetsRelPath == null) {
+                Uri assetsRelUri = new Uri(fullPath);
+                assetsRelUri = assetsUri.MakeRelativeUri(assetsRelUri);
+                _assetsRelPath = assetsRelUri.ToString();
+            }
+
+            return _assetsRelPath;
+        }
+    }
 
     private string _relPath;
     public string relPath {
         get {
             if (_relPath == null) {
-                //Debug.LogError("FullPath of ClassB: " + fullPath + ", current Path: " + Path.GetFullPath(".") + ", " + Path.GetPathRoot(".git"));
-                //Debug.LogError("Relative path of ClassB: " + fullPath.Remove(0, Path.GetFullPath(".").Length) + ", " + fullPath.Replace(Path.GetFullPath("."), ""));
                 Uri relUri = new Uri(fullPath);
                 relUri = projectUri.MakeRelativeUri(relUri);
-                //Debug.LogWarning("RelURI: " + relUri.ToString());
                 _relPath = relUri.ToString();
             }
 
@@ -46,12 +57,18 @@ public class CustomFile {
         }
     }
 
+    private string diffText;
+
     public string name { get { return _info.Name; } }
 
     public override string ToString() {
         return _info.Name;
     }
-
+    public void ClearPreviousChanges() {
+        foreach(CustomType t in types) {
+            t.ClearPreviousChanges();
+        }
+    }
     public CustomFile(FileInfo file) {
         this._info = file;
     }
@@ -113,5 +130,35 @@ public class CustomFile {
 
     public List<CustomType> GetTypesInFile() {
         return types;
+    }
+
+    public void OpenFileInEditor(int lineNum = 1) {
+        //UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(assetsRelPath), lineNum);
+
+        string path = "Assets/WhatHappened/Resources/tempDiff.txt";
+        StreamWriter writer = File.CreateText(path); //File.AppendText(path);
+        
+
+        //Write some text to the test.txt file
+        //StreamWriter writer = new StreamWriter(path, true);
+        writer.Write(diffText);
+        writer.Close();
+
+        //Re-import the file to update the reference in the editor
+        UnityEditor.AssetDatabase.ImportAsset(path);
+
+        TextAsset asset = Resources.Load<TextAsset>("tempDiff");
+
+        UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(path));
+
+        //UnityEditor.AssetDatabase.load
+
+        //Print the text from the file
+        //Debug.Log(asset.text);
+
+    }
+
+    public void SetDiffText(string diff) {
+        diffText = diff;
     }
 }

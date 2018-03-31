@@ -169,7 +169,7 @@ public class DependencyAnalyzer {
             //dependencyTable.Add(customType, customDependencySet);
         }
 
-        Debug.LogWarning("Datapath is: " + Application.dataPath);
+        Debug.LogWarning("Datapath is: " + Application.dataPath); 
         DirectoryInfo assetDir = new System.IO.DirectoryInfo(Application.dataPath);
         FileInfo[] csFiles = assetDir.GetFiles("*.cs", System.IO.SearchOption.AllDirectories);
 
@@ -753,6 +753,8 @@ public class DependencyAnalyzer {
                 else {
                     Debug.LogError("!!DID NOT FIND: " + method.info.Name);
                 }
+
+                method.SetSimplifiedMethodSignature(methodMatch.Groups["methodSig"].Value);
 
                 currentLineNum = currentType.startLineNum + text.Substring(classMatch.Index, methodMatch.Groups["methodSig"].Index - classMatch.Index).Count(x => x == '\n');
                 //TODO consider recording index, as well as line, in CustomType/CustomMethod
