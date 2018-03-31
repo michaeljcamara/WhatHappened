@@ -132,30 +132,32 @@ public class CustomFile {
         return types;
     }
 
-    public void OpenFileInEditor(int lineNum = 1) {
-        //UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(assetsRelPath), lineNum);
-
+    public void OpenDiffTextInEditor() {
         string path = "Assets/WhatHappened/Resources/tempDiff.txt";
         StreamWriter writer = File.CreateText(path); //File.AppendText(path);
-        
 
-        //Write some text to the test.txt file
-        //StreamWriter writer = new StreamWriter(path, true);
         writer.Write(diffText);
+        writer.Flush();
         writer.Close();
 
         //Re-import the file to update the reference in the editor
         UnityEditor.AssetDatabase.ImportAsset(path);
 
-        TextAsset asset = Resources.Load<TextAsset>("tempDiff");
-
         UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(path));
+
+        //TextAsset asset = Resources.Load<TextAsset>("tempDiff");
+
+        //UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(path));
 
         //UnityEditor.AssetDatabase.load
 
         //Print the text from the file
         //Debug.Log(asset.text);
 
+    }
+
+    public void OpenFileInEditor(int lineNum = 1) {
+        UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(assetsRelPath), lineNum);
     }
 
     public void SetDiffText(string diff) {

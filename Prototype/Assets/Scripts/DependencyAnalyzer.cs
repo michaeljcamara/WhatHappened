@@ -53,6 +53,11 @@ public class DependencyAnalyzer {
             //Debug.Log("In GetFieldDeps, cur field = " + field + ", name = " + field.Name + ", fieldType = " + field.FieldType); //In GetFieldDeps, cur field = System.String authorOfChange, fieldType = System.String
 
             //Debug.LogError("  Field name: " + field.FieldType.Name + ", fullname: " + field.FieldType.FullName + ", isNested(has+): " + field.FieldType.IsNested + ", namespace: " + field.FieldType.Namespace + ", FULLTYPE: " + field.FieldType);
+
+            // Add any generic types included in this type
+            foreach(Type genType in field.FieldType.GetGenericArguments()) {
+                types.Add(genType);
+            }
         }
 
         return types;
@@ -70,25 +75,51 @@ public class DependencyAnalyzer {
             // Parameter dependencies
             ParameterInfo[] parameters = method.GetParameters();
             foreach (ParameterInfo parameter in parameters) {
-                types.Add(parameter.Member.MemberType.GetType());
+                //types.Add(parameter.Member.MemberType.GetType()); //TODO CHECK, REPLACED THIS
+                types.Add(parameter.ParameterType); //TODO CHECK, REPLACED THIS
+
+                // Add any generic types in this type
+                foreach (Type genType in parameter.ParameterType.GetGenericArguments()) {
+                    types.Add(genType);
+                }
             }
 
             // Return type dependencies
             if (method.ReturnType != typeof(void)) {
                 types.Add(method.ReturnType);
+
+                // Add any generic types in this type
+                foreach (Type genType in method.ReturnType.GetGenericArguments()) {
+                    types.Add(genType);
+                }
             }
 
             // Local dependencies
             IList<LocalVariableInfo> localVars = methods[0].GetMethodBody().LocalVariables;
             foreach (LocalVariableInfo local in localVars) {
                 types.Add(local.LocalType);
+                
+                // Add any generic types in this type
+                foreach (Type genType in local.LocalType.GetGenericArguments()) {
+                    types.Add(genType);
+                }
             }
         }
 
         return types;
     }
 
-    public DependencyAnalyzer() {
+    //HashSet<Type> GetNestedDependencies(Type type) {
+    //    Type[] nested = type.GetNestedTypes(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+    //    HashSet<Type> types = new HashSet<Type>();
+
+    //    foreach(Type t in nested) {
+    //        if()
+    //    }
+
+    //}
+
+        public DependencyAnalyzer() {
 
         //dependencyTable = new Dictionary<CustomType, HashSet<CustomType>>();
         assembly = Assembly.GetExecutingAssembly();

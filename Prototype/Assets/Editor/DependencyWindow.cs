@@ -23,7 +23,7 @@ public class DependencyWindow : EditorWindow {
     bool isStyleInit;
     int typeIndex, prevTypeIndex;
     int commitIndex, prevCommitIndex;
-    private GUIStyle style;
+    private GUIStyle style, popupStyle;
     private GUISkin skin;
 
     EditorGUISplitView horizontalSplitView = new EditorGUISplitView(EditorGUISplitView.Direction.Horizontal);
@@ -79,6 +79,7 @@ public class DependencyWindow : EditorWindow {
             //string commitName = (i + 1) + ": " + c.Author.When.DateTime.ToString("F") + ", " + c.Author.Name + ": " + c.Message;
             string commitName = (i + 1) + ": [" + c.Author.When.DateTime.ToString("g") + "] (" + c.Author.Name + "): " + c.Message;
             commitName = commitName.Replace("/", "-"); // The EditorGUILayout.PopUp uses '/' to branch the selection, which I dont want
+            commitName = commitName.Replace("\n", " "); // The EditorGUILayout.PopUp uses '/' to branch the selection, which I dont want
             commitName = commitName.Substring(0, Mathf.Min(100, commitName.Length)) + "...";
             //commitNames[i + 1] = c.Author.Name + ", " + i;
             commitNames[i + 1] = commitName;
@@ -105,6 +106,10 @@ public class DependencyWindow : EditorWindow {
         labelStyle.fontStyle = FontStyle.Bold;
         labelStyle.fontSize = 13;
 
+        popupStyle = new GUIStyle(EditorStyles.popup);
+        popupStyle.wordWrap = false;
+        popupStyle.fontSize = 12;
+
         skin = ScriptableObject.CreateInstance<GUISkin>();
         skin.box = style;
         skin.label = style;
@@ -120,7 +125,7 @@ public class DependencyWindow : EditorWindow {
         Debug.LogError("INITTING WINDOW");
         window = (DependencyWindow)EditorWindow.GetWindow<DependencyWindow>("WhatHappened");
         window.Show();
-        window.minSize = new Vector2(600, 600);
+        window.minSize = new Vector2(600, 600); //TODO change
     }
 
         private void HandleInput() {
@@ -272,6 +277,16 @@ public class DependencyWindow : EditorWindow {
         }
         GUILayout.EndHorizontal();
 
+        if (t.totalLineChanges > 0) {
+            GUILayout.BeginHorizontal();
+            bool clickedOpenDiff = GUILayout.Button("Open Full Diff Text");
+            if (clickedOpenDiff) {
+                Debug.LogWarning("Attempting to open diff: " + t);
+                t.file.OpenDiffTextInEditor();
+            }
+            GUILayout.EndHorizontal();
+        }
+
         GUILayout.Label("    Total Changes: " + t.totalLineChanges);
         GUILayout.Label("    Changes Outside Methods: " + t.totalChangesOutsideMethods);
         GUILayout.Label("        Additions: " + t.additionsOutsideMethods);
@@ -311,14 +326,15 @@ public class DependencyWindow : EditorWindow {
             bool clickedOpenMethod = GUILayout.Button(m.GetSimplifiedMethodSignature() + ":", GUILayout.ExpandWidth(false));
             if (clickedOpenMethod) {
                 Debug.LogWarning("Attempting to open: " + m + " at :" + m.startLineNum);
-                //t.file.OpenFileInEditor(m.startLineNum);
                 t.file.OpenFileInEditor(m.startLineNum); 
             }
             GUILayout.EndHorizontal();
 
-            GUILayout.Label("    Total Changes: " + m.totalChanges);
-            GUILayout.Label("        Additions: " + m.additions);
-            GUILayout.Label("        Deletions: " + m.deletions);
+            if (!startedUnchanged) {
+                GUILayout.Label("    Total Changes: " + m.totalChanges);
+                GUILayout.Label("        Additions: " + m.additions);
+                GUILayout.Label("        Deletions: " + m.deletions);
+            }
 
             methodIndex++;
         }
@@ -329,16 +345,17 @@ public class DependencyWindow : EditorWindow {
     }
 
     void CreateOptionsPanel() {
-        GUI.color = Color.cyan;
+        //GUI.color = new Color(102, 178, 178);
+        GUI.color = new Color(168 / 255f, 247 / 255f, 255 / 255f);
 
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
         GUILayout.Label("-- WhatHappened Options --", labelStyle);
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
-        GUILayoutOption[] popupOptions = { GUILayout.ExpandWidth(true) };//, GUILayout.ExpandHeight(true) };
+        //GUILayoutOption[] popupOptions = { GUILayout.ExpandWidth(true)};//, GUILayout.ExpandHeight(true) };
 
-        typeIndex = EditorGUILayout.Popup("Select Root Type:", typeIndex, typeNames);
+        typeIndex = EditorGUILayout.Popup("Select Root Type:", typeIndex, typeNames, popupStyle);
 
 
         if (typeIndex != prevTypeIndex) {
@@ -346,7 +363,7 @@ public class DependencyWindow : EditorWindow {
             prevTypeIndex = typeIndex;
         }
 
-        commitIndex = EditorGUILayout.Popup("Select Past Commit:", commitIndex, commitNames);
+        commitIndex = EditorGUILayout.Popup("Select Past Commit:", commitIndex, commitNames, popupStyle);
 
         if (commitIndex != prevCommitIndex) {
             
