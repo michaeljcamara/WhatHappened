@@ -43,7 +43,10 @@ namespace WhatHappened {
         }
 
         public void DiffFile(CustomFile file, int commitIndex) {
-
+            if (file == null) {
+                Debug.LogError("TRYING TO DIFf NULL FILE");
+                return;
+            }
             file.ClearPreviousChanges();
 
             // Return if user selected "NO SELECTION" index
