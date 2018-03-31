@@ -21,6 +21,8 @@ namespace WhatHappened {
         private bool _isCyclic;
         public bool isCyclic { get { return _isCyclic; } }
 
+        public bool hasChanged;
+
         private CustomTypeNode _parent;
         public CustomTypeNode parent { get { return _parent; } }
 

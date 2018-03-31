@@ -26,6 +26,8 @@ namespace WhatHappened {
         int commitIndex, prevCommitIndex;
         private GUIStyle style, popupStyle;
         private GUISkin skin;
+        bool hideUnchanged = false;
+        bool previousToggle = false;
 
         EditorGUISplitView horizontalSplitView = new EditorGUISplitView(EditorGUISplitView.Direction.Horizontal);
         EditorGUISplitView verticalSplitView = new EditorGUISplitView(EditorGUISplitView.Direction.Vertical);
@@ -88,6 +90,7 @@ namespace WhatHappened {
 
             commitIndex = 0;
             typeIndex = 0;
+            hideUnchanged = false;
 
             ResetTree();
         }
@@ -379,7 +382,13 @@ namespace WhatHappened {
                 prevCommitIndex = commitIndex;
             }
 
+            hideUnchanged = EditorGUILayout.Toggle("Hide Unchanged Nodes:", hideUnchanged);
+            if(hideUnchanged != previousToggle) {
+                previousToggle = hideUnchanged;
+                ResetTree(); //but keep same type/git index
+            }
             //TODO FILTER BUTTON!!!!!!!!!
+            // reset ONCE when pressed
 
         }
 
@@ -390,7 +399,8 @@ namespace WhatHappened {
         }
 
 
-        void ResetTree() {
+        void ResetTree(bool keepIndicesSame = false) {
+
             selectedNode = null;
             specialNode = null;
             prevSelectedNode = null;
@@ -415,7 +425,9 @@ namespace WhatHappened {
             positionOffset = Vector2.zero;
             zoomLevel = 0;
 
-            allNodes = CreateDependencyTree(chosenType, null, new LinkedList<CustomType>(), new Dictionary<int, LinkedList<CustomTypeNode>>(), 0);
+            //allNodes = CreateDependencyTree(chosenType, null, new LinkedList<CustomType>(), new Dictionary<int, LinkedList<CustomTypeNode>>(), 0);
+            allNodes = new Dictionary<int, LinkedList<CustomTypeNode>>();
+            CreateDependencyTree(chosenType, null, new LinkedList<CustomType>(), 0);
 
             int nodeCount = 0;
             foreach (KeyValuePair<int, LinkedList<CustomTypeNode>> pair in allNodes) {
@@ -432,26 +444,14 @@ namespace WhatHappened {
             Debug.LogWarning("TOTAL NODES MADE: " + allNodes.Count);
         }
 
-        Dictionary<int, LinkedList<CustomTypeNode>> CreateDependencyTree(CustomType type, CustomTypeNode parent, LinkedList<CustomType> currentBranch, Dictionary<int, LinkedList<CustomTypeNode>> allNodes, int level) {
+
+        //TODO "OUT" REF for allNodes?
+        bool CreateDependencyTree(CustomType type, CustomTypeNode parent, LinkedList<CustomType> currentBranch, int level) {
 
             CustomTypeNode node = new CustomTypeNode(type, parent, level);
-            if (!allNodes.ContainsKey(level)) {
-                LinkedList<CustomTypeNode> listThisLevel = new LinkedList<CustomTypeNode>();
-                listThisLevel.AddLast(node);
-                allNodes.Add(level, listThisLevel);
-            }
-            else {
-                allNodes[level].AddLast(node);
-            }
-
-            //Debug.Log("Type in tree: " + type);
-            //Debug.Log("   Is File null?: " + ((type.file == null) ? "TRUE" : "FALSE"));
-            //Debug.Log("   FileInfo from Type: " + type.file.info);
-            //Debug.Log("     FileName from Type: " + type.file.info.FullName);
-            allFiles.Add(type.file);
-
             HashSet<CustomType> dependencies = type.GetDependencies();
 
+            bool anyChildrenChanged = false;
             if (currentBranch.Contains(type)) {
                 node.SetCyclic(true);
             }
@@ -459,14 +459,69 @@ namespace WhatHappened {
                 currentBranch.AddLast(type);
 
                 foreach (CustomType dependency in dependencies) {
-                    //CreateDependencyTree(stack, allNodes, level + 1);            
-                    CreateDependencyTree(dependency, node, currentBranch, allNodes, level + 1);
+                    bool isChanged = CreateDependencyTree(dependency, node, currentBranch, level + 1);
+                    if(isChanged) {
+                        anyChildrenChanged = true;
+                    }
                 }
                 currentBranch.RemoveLast();
             }
 
-            return allNodes;
+            if (!hideUnchanged || (hideUnchanged && (type.hasChanged || anyChildrenChanged || level == 0))) {
+
+                if (!allNodes.ContainsKey(level)) {
+                    LinkedList<CustomTypeNode> listThisLevel = new LinkedList<CustomTypeNode>();
+                    listThisLevel.AddLast(node);
+                    allNodes.Add(level, listThisLevel);
+                }
+                else {
+                    allNodes[level].AddLast(node);
+                }
+
+                allFiles.Add(type.file);
+                return true;
+            }
+            else {
+                return false;
+            }
         }
+
+        //ORIGINAL 3-31 2-11pm
+        //Dictionary<int, LinkedList<CustomTypeNode>> CreateDependencyTree(CustomType type, CustomTypeNode parent, LinkedList<CustomType> currentBranch, Dictionary<int, LinkedList<CustomTypeNode>> allNodes, int level) {
+
+        //    CustomTypeNode node = new CustomTypeNode(type, parent, level);
+        //    if (!allNodes.ContainsKey(level)) {
+        //        LinkedList<CustomTypeNode> listThisLevel = new LinkedList<CustomTypeNode>();
+        //        listThisLevel.AddLast(node);
+        //        allNodes.Add(level, listThisLevel);
+        //    }
+        //    else {
+        //        allNodes[level].AddLast(node);
+        //    }
+
+        //    //Debug.Log("Type in tree: " + type);
+        //    //Debug.Log("   Is File null?: " + ((type.file == null) ? "TRUE" : "FALSE"));
+        //    //Debug.Log("   FileInfo from Type: " + type.file.info);
+        //    //Debug.Log("     FileName from Type: " + type.file.info.FullName);
+        //    allFiles.Add(type.file);
+
+        //    HashSet<CustomType> dependencies = type.GetDependencies();
+
+        //    if (currentBranch.Contains(type)) {
+        //        node.SetCyclic(true);
+        //    }
+        //    else if (dependencies.Count > 0) {
+        //        currentBranch.AddLast(type);
+
+        //        foreach (CustomType dependency in dependencies) {
+        //            //CreateDependencyTree(stack, allNodes, level + 1);            
+        //            CreateDependencyTree(dependency, node, currentBranch, allNodes, level + 1);
+        //        }
+        //        currentBranch.RemoveLast();
+        //    }
+
+        //    return allNodes;
+        //}
 
 
         void DrawNodes() {

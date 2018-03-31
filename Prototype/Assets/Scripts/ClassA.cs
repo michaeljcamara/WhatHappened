@@ -9,6 +9,7 @@ public class ClassA : MonoBehaviour {
     public int testInt;
     public float testFloat; 
     public ClassB testClass;
+    public ClassD d;
 
     // Use this for initialization
     void Start() {
