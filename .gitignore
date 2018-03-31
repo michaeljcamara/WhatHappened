@@ -10,3 +10,8 @@ UnityPackageManager
 /Prototype/Prototype.csproj.user
 /Prototype/Prototype.Editor.csproj
 .vs
+app.config
+packages.config
+Prototype.Editor.csproj.user
+Prototype.userprefs
+packages
