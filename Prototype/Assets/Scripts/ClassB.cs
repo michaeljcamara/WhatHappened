@@ -14,6 +14,8 @@ public class ClassB : MonoBehaviour {
     public string publicString;
     //public ClassC publicCLassC;
 
+    public List<List<List<ClassD>>> nestedGenericD;
+
     private int privateInt;
     private float privateFloat;
     private double privateDouble;

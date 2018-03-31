@@ -55,8 +55,8 @@ public class DependencyAnalyzer {
             //Debug.LogError("  Field name: " + field.FieldType.Name + ", fullname: " + field.FieldType.FullName + ", isNested(has+): " + field.FieldType.IsNested + ", namespace: " + field.FieldType.Namespace + ", FULLTYPE: " + field.FieldType);
 
             // Add any generic types included in this type
-            foreach(Type genType in field.FieldType.GetGenericArguments()) {
-                types.Add(genType);
+            if (field.FieldType.IsGenericType) {
+                types.UnionWith(GetAllNestedGenerics(field.FieldType));
             }
         }
 
@@ -79,8 +79,8 @@ public class DependencyAnalyzer {
                 types.Add(parameter.ParameterType); //TODO CHECK, REPLACED THIS
 
                 // Add any generic types in this type
-                foreach (Type genType in parameter.ParameterType.GetGenericArguments()) {
-                    types.Add(genType);
+                if (parameter.ParameterType.IsGenericType) {
+                    types.UnionWith(GetAllNestedGenerics(parameter.ParameterType));
                 }
             }
 
@@ -89,8 +89,8 @@ public class DependencyAnalyzer {
                 types.Add(method.ReturnType);
 
                 // Add any generic types in this type
-                foreach (Type genType in method.ReturnType.GetGenericArguments()) {
-                    types.Add(genType);
+                if (method.ReturnType.IsGenericType) {
+                    types.UnionWith(GetAllNestedGenerics(method.ReturnType));
                 }
             }
 
@@ -98,10 +98,9 @@ public class DependencyAnalyzer {
             IList<LocalVariableInfo> localVars = methods[0].GetMethodBody().LocalVariables;
             foreach (LocalVariableInfo local in localVars) {
                 types.Add(local.LocalType);
-                
-                // Add any generic types in this type
-                foreach (Type genType in local.LocalType.GetGenericArguments()) {
-                    types.Add(genType);
+
+                if(local.LocalType.IsGenericType) {
+                    types.UnionWith(GetAllNestedGenerics(local.LocalType));
                 }
             }
         }
@@ -109,18 +108,58 @@ public class DependencyAnalyzer {
         return types;
     }
 
-    //HashSet<Type> GetNestedDependencies(Type type) {
-    //    Type[] nested = type.GetNestedTypes(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-    //    HashSet<Type> types = new HashSet<Type>();
+    HashSet<Type> GetNestedDependencies(Type type) {
+        Type[] nested = type.GetNestedTypes(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        HashSet<Type> types = new HashSet<Type>();
 
-    //    foreach(Type t in nested) {
-    //        if()
-    //    }
+        foreach (Type t in nested) {
+            types.Add(t);
 
-    //}
+            if (t.IsGenericType) {
+                types.UnionWith(GetAllNestedGenerics(t));
+            }
+        }
 
-        public DependencyAnalyzer() {
+        return types;
+    }
 
+    HashSet<Type> GetInheritedDependencies(Type type) {
+        Type[] interfaces = type.GetInterfaces();
+        Type baseType = type.BaseType;
+
+        HashSet<Type> types = new HashSet<Type>();
+        types.Add(baseType);
+
+        if (baseType.IsGenericType) {
+            types.UnionWith(GetAllNestedGenerics(baseType));
+        }
+
+        foreach (Type i in interfaces) {
+            types.Add(i);
+            if(i.IsGenericType) {
+                types.UnionWith(GetAllNestedGenerics(i));
+            }
+        }
+
+        return types;
+    }
+
+    HashSet<Type> GetAllNestedGenerics(Type type) {
+        HashSet<Type> types = new HashSet<Type>();
+
+        // Add any generic types in this type, searching recursively for ALL generics in definition
+        // E.g. capture class A in:  Dictionary< Dictionary<int, A>, int> dict;
+        foreach (Type genType in type.GetGenericArguments()) {
+            types.Add(genType);
+            types.UnionWith(GetAllNestedGenerics(genType));
+        }
+
+        return types;
+    }
+
+    public DependencyAnalyzer() {
+
+        //TODO CONSTRUCTOR DEPS
         //dependencyTable = new Dictionary<CustomType, HashSet<CustomType>>();
         assembly = Assembly.GetExecutingAssembly();
         customTypeLookup = new Dictionary<string, CustomType>(); //NEWW
@@ -131,80 +170,147 @@ public class DependencyAnalyzer {
         Debug.Log("TYPES LENGTH: " + assembly.GetTypes().Length);
 
         Type[] types = assembly.GetTypes();
-        for (int i = 0; i < types.Length; i++) {
 
-            Type currentType = types[i];
-            //Dont include any namespaces not created by the user
-            //TODO refine this to ensure only UnityEngine/UnityEditor/System namespaces included, not GreatSystem etc
-            //if (currentType.Namespace != null && (currentType.Namespace.Contains("Unity") || currentType.Namespace.Contains("System"))) {
-            //TODO ideally exclude all of my namespace WhatChanged or whatever
-            if (currentType.Namespace != null && (currentType.Namespace.Contains("Unity") || currentType.Namespace.Contains("System")) || currentType == typeof(CustomType) || currentType == typeof(DependencyAnalyzer)) {
-            continue;
-            }
-
-            Debug.LogError("Type name: " + currentType.Name + ", fullname: " + currentType.FullName + ", isNested(has+): " + currentType.IsNested + ", namespace: " + currentType.Namespace + ", FULLTYPE: " + currentType); //Type name: anotherClass1, fullname: ClassB+anotherClass1, isNested(has+): True, namespace: // NEWWW
-
-            //Ensure every customType is a singleton
-            //TODO better way?
-            CustomType customType;
-            string typeName = SimplifyTypeFullName(currentType);
-            if (customTypeLookup.ContainsKey(typeName)) {
-                customType = customTypeLookup[typeName];
-            }
-            else {
-                customType = new CustomType(currentType);
+        foreach(Type currentType in types) {
+            if ((currentType.Namespace != null && !currentType.Namespace.Contains("Unity") && !currentType.Namespace.Contains("System")) || (currentType != typeof(CustomType) && currentType != typeof(DependencyAnalyzer))) {
+                CustomType customType = new CustomType(currentType);
                 customTypeLookup.Add(customType.simplifiedFullName, customType);
             }
-            
-                 
+        }
+
+        foreach (CustomType customType in customTypeLookup.Values) {
             HashSet<Type> dependencySet = new HashSet<Type>();
 
-            dependencySet.UnionWith(GetFieldDependencies(currentType));
-            dependencySet.UnionWith(GetMethodDependencies(currentType));
-            //dependencySet.UnionWith(GetInheritanceDependencies()); //TODO
-
+            dependencySet.UnionWith(GetFieldDependencies(customType.type));
+            dependencySet.UnionWith(GetMethodDependencies(customType.type));
+            dependencySet.UnionWith(GetNestedDependencies(customType.type));
+            dependencySet.UnionWith(GetInheritedDependencies(customType.type));
+            
             HashSet<CustomType> customDependencySet = new HashSet<CustomType>();
-            foreach(Type t in dependencySet) {
-                 
-                if (t.Namespace != null && (t.Namespace.Contains("Unity") || t.Namespace.Contains("System")) || t == typeof(CustomType) || currentType == typeof(DependencyAnalyzer) || t == currentType) {
-                    continue;
-                }
-                CustomType chosenCustomType = null;
-                string name = SimplifyTypeFullName(t);
+            foreach (Type t in dependencySet) {
 
-                //Ensure that each customType is a singleton, same reference across all data structures
-                if(customTypeLookup.ContainsKey(name)) {
-                    chosenCustomType = customTypeLookup[name];
+                //Ignore dependency with self
+                if (t != customType.type) {
+                    string simplifiedName = SimplifyTypeFullName(t);
+
+                    //Dont add dependencies that aren't CustomTypes (e.g. those in System or Unity namespaces, as previously filtered)
+                    if (customTypeLookup.ContainsKey(simplifiedName)) {
+                        customDependencySet.Add(customTypeLookup[simplifiedName]);
+                    }
+
                 }
-                else {
-                    chosenCustomType = new CustomType(t);
-                    customTypeLookup.Add(chosenCustomType.simplifiedFullName, chosenCustomType);
-                }
-                customDependencySet.Add(chosenCustomType); 
             }
 
             customType.SetDependencies(customDependencySet);
-
-            //orig.ConvertAll(x => new TargetType { SomeValue = x.SomeValue });
-            //TODO exclude system, unityengine types
-            //foreach (Type type in dependencySet) {
-            //    Debug.Log("HASHSET TYPES: " + type); //System.Int32
-            //    Debug.Log("Type name: " + type.Name + ", namespace: " + type.Namespace); //CustomType, namespace: 
-            //    //Debug.LogWarning(type.GetMethod("LogTest",BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
-            //}
-
-
-            //customTypeLookup.Add(currentType.Name, new CustomType(currentType)); //NEWW
-            
-
-            //dependencyTable.Add(customType, customDependencySet);
         }
+
+        //for (int i = 0; i < types.Length; i++) {
+
+        //    HashSet<Type> dependencySet = new HashSet<Type>();
+
+        //    dependencySet.UnionWith(GetFieldDependencies(currentType));
+        //    dependencySet.UnionWith(GetMethodDependencies(currentType));
+        //    //dependencySet.UnionWith(GetInheritanceDependencies()); //TODO
+
+        //    HashSet<CustomType> customDependencySet = new HashSet<CustomType>();
+        //    foreach (Type t in dependencySet) {
+
+        //        if (t.Namespace != null && (t.Namespace.Contains("Unity") || t.Namespace.Contains("System")) || t == typeof(CustomType) || currentType == typeof(DependencyAnalyzer) || t == currentType) {
+        //            continue;
+        //        }
+        //        CustomType chosenCustomType = null;
+        //        string name = SimplifyTypeFullName(t);
+
+        //        //Ensure that each customType is a singleton, same reference across all data structures
+        //        if (customTypeLookup.ContainsKey(name)) {
+        //            chosenCustomType = customTypeLookup[name];
+        //        }
+        //        else {
+        //            chosenCustomType = new CustomType(t);
+        //            customTypeLookup.Add(chosenCustomType.simplifiedFullName, chosenCustomType);
+        //        }
+        //        customDependencySet.Add(chosenCustomType);
+        //    }
+
+        //    customType.SetDependencies(customDependencySet);
+
+        //    //orig.ConvertAll(x => new TargetType { SomeValue = x.SomeValue });
+        //    //TODO exclude system, unityengine types
+        //    //foreach (Type type in dependencySet) {
+        //    //    Debug.Log("HASHSET TYPES: " + type); //System.Int32
+        //    //    Debug.Log("Type name: " + type.Name + ", namespace: " + type.Namespace); //CustomType, namespace: 
+        //    //    //Debug.LogWarning(type.GetMethod("LogTest",BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
+        //    //}
+        //}
+        //end
+
+        //for (int i = 0; i < types.Length; i++) {
+
+        //    Type currentType = types[i];
+        //    //Dont include any namespaces not created by the user
+        //    //TODO refine this to ensure only UnityEngine/UnityEditor/System namespaces included, not GreatSystem etc
+        //    //if (currentType.Namespace != null && (currentType.Namespace.Contains("Unity") || currentType.Namespace.Contains("System"))) {
+        //    //TODO ideally exclude all of my namespace WhatChanged or whatever
+        //    if (currentType.Namespace != null && (currentType.Namespace.Contains("Unity") || currentType.Namespace.Contains("System")) || currentType == typeof(CustomType) || currentType == typeof(DependencyAnalyzer)) {
+        //    continue;
+        //    }
+
+        //    Debug.LogError("Type name: " + currentType.Name + ", fullname: " + currentType.FullName + ", isNested(has+): " + currentType.IsNested + ", namespace: " + currentType.Namespace + ", FULLTYPE: " + currentType); //Type name: anotherClass1, fullname: ClassB+anotherClass1, isNested(has+): True, namespace: // NEWWW
+
+        //    //Ensure every customType is a singleton
+        //    //TODO better way?
+        //    CustomType customType;
+        //    string typeName = SimplifyTypeFullName(currentType);
+        //    if (customTypeLookup.ContainsKey(typeName)) {
+        //        customType = customTypeLookup[typeName];
+        //    }
+        //    else {
+        //        customType = new CustomType(currentType);
+        //        customTypeLookup.Add(customType.simplifiedFullName, customType);
+        //    }
+
+
+        //    HashSet<Type> dependencySet = new HashSet<Type>();
+
+        //    dependencySet.UnionWith(GetFieldDependencies(currentType));
+        //    dependencySet.UnionWith(GetMethodDependencies(currentType));
+        //    //dependencySet.UnionWith(GetInheritanceDependencies()); //TODO
+
+        //    HashSet<CustomType> customDependencySet = new HashSet<CustomType>();
+        //    foreach(Type t in dependencySet) {
+
+        //        if (t.Namespace != null && (t.Namespace.Contains("Unity") || t.Namespace.Contains("System")) || t == typeof(CustomType) || currentType == typeof(DependencyAnalyzer) || t == currentType) {
+        //            continue;
+        //        }
+        //        CustomType chosenCustomType = null;
+        //        string name = SimplifyTypeFullName(t);
+
+        //        //Ensure that each customType is a singleton, same reference across all data structures
+        //        if(customTypeLookup.ContainsKey(name)) {
+        //            chosenCustomType = customTypeLookup[name];
+        //        }
+        //        else {
+        //            chosenCustomType = new CustomType(t);
+        //            customTypeLookup.Add(chosenCustomType.simplifiedFullName, chosenCustomType);
+        //        }
+        //        customDependencySet.Add(chosenCustomType); 
+        //    }
+
+        //    customType.SetDependencies(customDependencySet);
+
+        //    //orig.ConvertAll(x => new TargetType { SomeValue = x.SomeValue });
+        //    //TODO exclude system, unityengine types
+        //    //foreach (Type type in dependencySet) {
+        //    //    Debug.Log("HASHSET TYPES: " + type); //System.Int32
+        //    //    Debug.Log("Type name: " + type.Name + ", namespace: " + type.Namespace); //CustomType, namespace: 
+        //    //    //Debug.LogWarning(type.GetMethod("LogTest",BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
+        //    //}
+        //}
 
         Debug.LogWarning("Datapath is: " + Application.dataPath); 
         DirectoryInfo assetDir = new System.IO.DirectoryInfo(Application.dataPath);
         FileInfo[] csFiles = assetDir.GetFiles("*.cs", System.IO.SearchOption.AllDirectories);
 
-        //TODO consider EnumerateFiles, allows access before all array populated
         HashSet<string> typesAsStrings = new HashSet<string>();
 
         Debug.LogWarning("Iterating all .cs files in Assets");
@@ -646,7 +752,8 @@ public class DependencyAnalyzer {
         //}
 
         Debug.Log("FILE NAME IN EXTRACT IS:" + file.name);
-        if (!file.name.Equals("ClassB.cs") && !file.name.Equals("ClassA.cs") && !file.name.Equals("ClassC.cs")) {
+        //TODO GENERALIZE THIS!!! //ideally exclude files in ../WhatHappened/etc
+        if (!file.name.Equals("ClassB.cs") && !file.name.Equals("ClassA.cs") && !file.name.Equals("ClassC.cs") && !file.name.Equals("ClassD.cs")) {
             //Debug.Log("Equals ClassB.cs?: " + (file.name.Equals("ClassB.cs")) + ", " + (file.name == "ClassB.cs"));
             return null;
         }

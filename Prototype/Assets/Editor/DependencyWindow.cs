@@ -270,7 +270,7 @@ public class DependencyWindow : EditorWindow {
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        bool clickedOpenType = GUILayout.Button(t.ToString());
+        bool clickedOpenType = GUILayout.Button(t.ToString() + " (in file: " + t.file.name + ")");
         if(clickedOpenType) {
             Debug.LogWarning("Attempting to open: " + t);
             t.file.OpenFileInEditor(t.startLineNum);
@@ -436,7 +436,7 @@ public class DependencyWindow : EditorWindow {
             allNodes[level].AddLast(node);
         }
 
-        Debug.Log("Type in tree: " + type);
+        //Debug.Log("Type in tree: " + type);
         //Debug.Log("   Is File null?: " + ((type.file == null) ? "TRUE" : "FALSE"));
         //Debug.Log("   FileInfo from Type: " + type.file.info);
         //Debug.Log("     FileName from Type: " + type.file.info.FullName);
