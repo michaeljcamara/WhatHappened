@@ -33,7 +33,7 @@ namespace WhatHappened {
                     gitDir = dirs[0];
                 }
             }
-            Debug.Log("This is the git dir: " + gitDir.FullName);
+            //Debug.Log("This is the git dir: " + gitDir.FullName);
             repo = new Repository(gitDir.FullName);
 
             _commitList = new List<Commit>();

@@ -71,17 +71,6 @@ namespace WhatHappened {
 
         public void SetDependencies(HashSet<CustomType> dependencies) {
             this.dependencies = dependencies;
-
-            if (simplifiedFullName == "ClassB") {
-                Debug.LogWarning("FOUND CLASS B!! Iterating deps: ");
-                foreach (CustomType t in dependencies) {
-                    Debug.LogWarning("  Dep: " + t);
-                }
-
-                foreach (CustomType t in this.dependencies) {
-                    Debug.LogWarning("  ThisDep: " + t);
-                }
-            }
         }
 
         public HashSet<CustomType> GetDependencies() {

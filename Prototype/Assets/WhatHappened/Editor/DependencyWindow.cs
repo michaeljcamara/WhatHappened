@@ -126,7 +126,7 @@ namespace WhatHappened {
 
         [MenuItem("Window/WhatHappened")]
         public static void Init() {
-            Debug.LogError("INITTING WINDOW");
+            //Debug.LogError("INITTING WINDOW");
             window = (DependencyWindow)EditorWindow.GetWindow<DependencyWindow>("WhatHappened");
             window.Show();
             window.minSize = new Vector2(600, 600); //TODO change
@@ -409,7 +409,6 @@ namespace WhatHappened {
             yPad = 0;
             nodesPerLevel = new Dictionary<int, int>();
             allFiles = new HashSet<CustomFile>();
-            Debug.Log("Is analyzer null?: " + analyzer + ", " + ((analyzer == null) ? "NULL" : "NOT NULL"));
             Dictionary<string, CustomType>.ValueCollection customTypes = analyzer.GetAllCustomTypes();
             typeNames = new string[customTypes.Count];
 
@@ -436,12 +435,11 @@ namespace WhatHappened {
                 }
                 int nodeIndex = 0;
                 foreach (CustomTypeNode node in pair.Value) {
-                    Debug.LogWarning("  NODE IS: " + node.type + ", Level is: " + pair.Key + ", index = " + nodeIndex);
+                    //Debug.LogWarning("  NODE IS: " + node.type + ", Level is: " + pair.Key + ", index = " + nodeIndex);
                     nodeCount++;
                     nodeIndex++;
                 }
             }
-            Debug.LogWarning("TOTAL NODES MADE: " + allNodes.Count);
         }
 
 
@@ -539,7 +537,7 @@ namespace WhatHappened {
             else if (isFirstFrameDrawn) {
                 yPad = 0;
                 //yPad = scaledRect.height / 2f - scaledTreeHeight / 2f;
-                Debug.LogWarning("************* TreeHeight: " + scaledTreeHeight + ", RectHeight: " + scaledRect.height);
+                //Debug.LogWarning("************* TreeHeight: " + scaledTreeHeight + ", RectHeight: " + scaledRect.height);
                 scrollPosition.y = scaledTreeHeight / 4;
             }
             isFirstFrameDrawn = false;
