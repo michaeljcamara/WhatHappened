@@ -5,6 +5,7 @@ using UnityEngine;
 public class ClassB : MonoBehaviour {
     public ClassA classA;
     public ClassB classB;
+    System.Text.StringBuilder GetBuilder(int[] nums, List<string> names) { return null; }
 
     //TODO WHAT ABOUT INTERFACES?? (clas | interfac) during regex?
     public int publicInt;

@@ -42,17 +42,20 @@ namespace WhatHappened {
             }
         }
 
-        public void DiffFile(CustomFile file, int commitIndex) {
+        //Return total lines of code changed
+        public int DiffFile(CustomFile file, int commitIndex) {
             if (file == null) {
                 Debug.LogError("TRYING TO DIFf NULL FILE");
-                return;
+                return 0;
             }
             file.ClearPreviousChanges();
 
             // Return if user selected "NO SELECTION" index
             if (commitIndex == -1) {
-                return;
+                return 0;
             }
+
+            int totalFileChanges = 0;
 
             LibGit2Sharp.Tree chosenTree2 = commitList[commitIndex].Tree;
 
@@ -109,6 +112,7 @@ namespace WhatHappened {
                                 else {
                                     typeAtLine.additionsOutsideMethods++;
                                 }
+                                totalFileChanges++;
                             }
                             lineNum++;
                             break;
@@ -121,6 +125,7 @@ namespace WhatHappened {
                                 else {
                                     typeAtLine.deletionsOutsideMethods++;
                                 }
+                                totalFileChanges++;
                             }
                             break;
                         default:
@@ -142,6 +147,7 @@ namespace WhatHappened {
                 }
             }
 
+            return totalFileChanges;
         }
 
     }

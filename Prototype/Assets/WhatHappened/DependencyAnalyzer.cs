@@ -52,9 +52,6 @@ namespace WhatHappened {
 
             foreach (FieldInfo field in fields) {
                 types.Add(field.FieldType);
-                //Debug.Log("In GetFieldDeps, cur field = " + field + ", name = " + field.Name + ", fieldType = " + field.FieldType); //In GetFieldDeps, cur field = System.String authorOfChange, fieldType = System.String
-
-                //Debug.LogError("  Field name: " + field.FieldType.Name + ", fullname: " + field.FieldType.FullName + ", isNested(has+): " + field.FieldType.IsNested + ", namespace: " + field.FieldType.Namespace + ", FULLTYPE: " + field.FieldType);
 
                 // Add any generic types included in this type
                 if (field.FieldType.IsGenericType) {
@@ -66,7 +63,6 @@ namespace WhatHappened {
         }
 
         HashSet<Type> GetMethodDependencies(Type type) {
-            //Consider, adding separate data structure for EACH method, so can 
 
             MethodInfo[] methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly); // ONLY base, target     
 
@@ -77,8 +73,7 @@ namespace WhatHappened {
                 // Parameter dependencies
                 ParameterInfo[] parameters = method.GetParameters();
                 foreach (ParameterInfo parameter in parameters) {
-                    //types.Add(parameter.Member.MemberType.GetType()); //TODO CHECK, REPLACED THIS
-                    types.Add(parameter.ParameterType); //TODO CHECK, REPLACED THIS
+                    types.Add(parameter.ParameterType);
 
                     // Add any generic types in this type
                     if (parameter.ParameterType.IsGenericType) {
@@ -116,7 +111,6 @@ namespace WhatHappened {
 
             foreach (Type t in nested) {
                 types.Add(t);
-
                 if (t.IsGenericType) {
                     types.UnionWith(GetAllNestedGenerics(t));
                 }

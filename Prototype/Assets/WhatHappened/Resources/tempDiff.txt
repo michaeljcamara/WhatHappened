@@ -1,103 +1,64 @@
-diff --git a/Prototype/Assets/Scripts/ClassB.cs b/Prototype/Assets/Scripts/ClassB.cs
-index 7424ff2..89f04ea 100644
---- a/Prototype/Assets/Scripts/ClassB.cs
-+++ b/Prototype/Assets/Scripts/ClassB.cs
-@@ -5,0 +6,2 @@ public class ClassB : MonoBehaviour {
-+    public ClassA classA;
-+    public ClassB classB;
-@@ -6,0 +9 @@ public class ClassB : MonoBehaviour {
-+    //TODO WHAT ABOUT INTERFACES?? (clas | interfac) during regex?
-@@ -13,0 +17,2 @@ public class ClassB : MonoBehaviour {
-+    public List<List<List<ClassD>>> nestedGenericD;
+diff --git a/Prototype/Assets/Scripts/STUDYSCRIPTS/HealthPickup.cs b/Prototype/Assets/Scripts/STUDYSCRIPTS/HealthPickup.cs
+new file mode 100644
+index 0000000..ec7ed8c
+--- /dev/null
++++ b/Prototype/Assets/Scripts/STUDYSCRIPTS/HealthPickup.cs
+@@ -0,0 +1,58 @@
++﻿using UnityEngine;
++using System.Collections;
 +
-@@ -42,0 +48,10 @@ public class ClassB : MonoBehaviour {
-+    //TODO rem spacing after brackets braces optional
-+    Dictionary<Dictionary<System.Text.StringBuilder, System.Text.StringBuilder[,,,]>, Dictionary<System.Text.StringBuilder[][][], List<System.Text.StringBuilder[][]>>> CrazyMethod(Dictionary<Dictionary<System.Text.StringBuilder, System.Text.StringBuilder[,,,]>, Dictionary<System.Text.StringBuilder[][][], List<System.Text.StringBuilder[][]>>> Arguments) { return null; }
-+    int[][] TwoDArrayInts(int[][] someInts) { return null; }
-+    int[,] TwoDArrayInts2(int[,] someInts) { return null; }
-+    int[][][] ThreeDArrayInts(int[][][] someInts) { return null; }
-+    int[,,] ThreeDArrayInts2(int[,,] someInts) { return null; }
-+    List<int> ListOfInts2(List<int> someInts2) { return null; }
-+    Dictionary<List<int>, Dictionary<List<int>, List<int>>> DictOfLists() { return null; }
-+    List<List<int>> ListOfLists(List<List<int>> someInts) { return null; }
-+    List<List<System.Text.StringBuilder>> ListOfListsBuilders(List<List<System.Text.StringBuilder>> someBuilders) { return null; }
-@@ -44 +59,2 @@ public class ClassB : MonoBehaviour {
--    
-+    System.Text.StringBuilder HasParameters(string someString, ClassC someClass, int someInt, System.Text.StringBuilder someBuilder) {
-+        System.Text.StringBuilder testBuilder = new System.Text.StringBuilder("");
-@@ -45,0 +62,2 @@ public class ClassB : MonoBehaviour {
-+        return testBuilder;
-+    }
-@@ -47,3 +65,28 @@ public class ClassB : MonoBehaviour {
--	// Use this for initialization
--	void Start () {
--		
-+    //*TEST WITH ARRAYS< LISTS< GENERICS< ETC
-+
-+    List<int> ListOfInts(List<int> someInts) { return null; }
-+    List<System.Text.StringBuilder> ListOfStringBuilders(List<System.Text.StringBuilder> someStringBuilders) { return null; }
-+    int[] ArrayOfInts(int[] someInts) { return null; }
-+    System.Text.StringBuilder[] ArrayOfStringBuilders(System.Text.StringBuilder[] someStringBuilders) { return null; }
-+
-+    private class NestedClass1 {
-+        private class NestedClass1_1 {
-+            private class NestedClass1_1_1 {
-+                void SuperNestedMethod() {
-+
-+                }
-+            }
-+        }
-+        private class NestedClass1_2{
-+            private class NestedClass1_2_1 {
-+                void SuperNestedMethod() {
-+
-+                }
-+            }
-+        }
-+    }
++public class HealthPickup : MonoBehaviour
++{
++	public float healthBonus;				// How much health the crate gives the player.
++	public AudioClip collect;				// The sound of the crate being collected.
 +
 +
-+    // Use this for initialization
-+    void Start () {
-+        DependencyAnalyzer analyzer = new DependencyAnalyzer();
-@@ -56,0 +100,2 @@ public class ClassB : MonoBehaviour {
-+    //todo overloaded methods
++	private PickupSpawner pickupSpawner;	// Reference to the pickup spawner.
++	private Animator anim;					// Reference to the animator component.
++	private bool landed;					// Whether or not the crate has landed.
 +
-@@ -65,0 +111,37 @@ public class ClassB : MonoBehaviour {
-+    
-+    private class anotherClass1 
-+        
-+        {
-+        private int nestedInt;
-+        private class NestedInAnotherClass {
 +
-+        }
-+    }
++	void Awake ()
++	{
++		// Setting up the references.
++		pickupSpawner = GameObject.Find("pickupManager").GetComponent<PickupSpawner>();
++		anim = transform.root.GetComponent<Animator>();
++	}
 +
-+    private class
 +
-+        anotherClass2 {
++	void OnTriggerEnter2D (Collider2D other)
++	{
++		// If the player enters the trigger zone...
++		if(other.tag == "Player")
++		{
++			// Get a reference to the player health script.
++			PlayerHealth playerHealth = other.GetComponent<PlayerHealth>();
 +
-+    }
++			// Increasse the player's health by the health bonus but clamp it at 100.
++			playerHealth.health += healthBonus;
++			playerHealth.health = Mathf.Clamp(playerHealth.health, 0f, 100f);
 +
-+    static
++			// Update the health bar.
++			playerHealth.UpdateHealthBar();
 +
-+    void
++			// Trigger a new delivery.
++			pickupSpawner.StartCoroutine(pickupSpawner.DeliverPickup());
 +
-+        someMethod
++			// Play the collection sound.
++			AudioSource.PlayClipAtPoint(collect,transform.position);
 +
-+        (
-+        
-+        ) 
-+        
-+        {
-+        int a;if
-+            (true
-+            ) {
++			// Destroy the crate.
++			Destroy(transform.root.gameObject);
++		}
++		// Otherwise if the crate hits the ground...
++		else if(other.tag == "ground" && !landed)
++		{
++			// ... set the Land animator trigger parameter.
++			anim.SetTrigger("Land");
 +
-+        }
-+    }     
++			transform.parent = null;
++			gameObject.AddComponent<Rigidbody2D>();
++			landed = true;	
++		}
++	}
 +}
-+
-+public class OutsideClassB {
-+

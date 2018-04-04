@@ -20,6 +20,7 @@ namespace WhatHappened {
         public int level;
         private bool _isCyclic;
         public bool isCyclic { get { return _isCyclic; } }
+        float absoluteImpactStrength, normalizedImpactStrength;
 
         public bool hasChanged;
 
@@ -60,5 +61,33 @@ namespace WhatHappened {
             _parent = p;
         }
 
+        public float CalculateAbsoluteImpactStrength(int totalChangesInTree, int numLevelsInTree) {
+            int linesOfCodeChanged = type.totalLineChanges;
+            int distanceFromRoot = level;
+
+            absoluteImpactStrength = (linesOfCodeChanged / (float)totalChangesInTree) * ((numLevelsInTree - distanceFromRoot) / (float) numLevelsInTree);
+
+            //Debug.Log("TotalChanges: " + totalChangesInTree + ", NumLevs: " + numLevelsInTree);
+            //Debug.LogWarning("Strength, Level: " + level + ",Type: " + type + ": " + impactStrength);
+            //TODO other metrics, like time since change made, num similar nodes in tree
+
+            return absoluteImpactStrength;
+            //figure out the max strength of all nodes, make that one strength = 1, so dark red, gradation from there.
+        }
+
+        //TODO if cyclic, get impact strength from cyclic parent, rather than recalculating
+        public float CalculateNormalizedImpactStrength(float maxImpactStrength) {
+            if(maxImpactStrength == 0) {
+                return 0;
+            }
+            else {
+                normalizedImpactStrength = absoluteImpactStrength / maxImpactStrength;
+                return normalizedImpactStrength;
+            }
+        }
+
+        public float GetNormalizedImpactStrength() {
+            return normalizedImpactStrength;
+        }
     }
 }

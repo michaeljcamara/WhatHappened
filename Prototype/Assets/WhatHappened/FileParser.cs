@@ -51,8 +51,6 @@ namespace WhatHappened {
             return text;
         }
 
-
-
         public List<CustomType> ExtractTypesFromFile(CustomFile file) {
 
             List<CustomType> typesInFile = new List<CustomType>();
@@ -61,8 +59,8 @@ namespace WhatHappened {
 
             string text = RemoveCommentsAndStrings(file);
 
-            string classPattern = @"\b(?:class|interface)(?:\s+?)(?<class>[_\w]+?\b)(?=[^{]*?{)"; // WORKS!!
-            Regex classRegex = new Regex(classPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Singleline);
+            string typePattern = @"\b(?:class|interface)(?:\s+?)(?<type>[_\w]+?\b)(?=[^{]*?{)"; // WORKS!!
+            Regex classRegex = new Regex(typePattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Singleline);
 
             int currentLineNum = 1; // +1 since the leading text does not capture the \n from the current line
             int currentIndex = 0; // Index of text string where current match begins
@@ -95,37 +93,30 @@ namespace WhatHappened {
                 }
 
                 // Get the name of the class as it appears in the text
-                System.Text.StringBuilder classString = new System.Text.StringBuilder("");
-                classString.Append(classMatch.Groups["class"].Captures[0].Value);
+                System.Text.StringBuilder typeString = new System.Text.StringBuilder("");
+                typeString.Append(classMatch.Groups["type"].Captures[0].Value);
 
                 // Handle nested types (e.g. private classes nested in other classes, potentially many nested levels)
                 //TODO clean this up with newer helper methods for nested classes
                 bool foundParent = false;
-                bool isNested = false;
                 do {
                     // No outer type detected, i.e. match is not nested
                     if (previousType == null) {
                         foundParent = true;
-                        isNested = false;
                     }
                     //Check if match is nested in previous matched type
                     else if (startLineNum >= previousType.startLineNum && endLineNum <= previousType.endLineNum) {
                         Type parent = previousType.type;
                         while (parent.IsNested) {
-                            classString.Insert(0, parent.Name + "+");
+                            typeString.Insert(0, parent.Name + "+");
                             parent = parent.DeclaringType;
                         }
-                        classString.Insert(0, parent.Name + "+");
-
-                        //Debug.LogError(" NestedTypeName = " + classString.ToString());
+                        typeString.Insert(0, parent.Name + "+");
                         foundParent = true;
-                        isNested = true;
                     }
                     //Not nested in previous matched type. Check if nested in that type's parent (if it exists)
                     else {
-                        //TODO need to normalize fullname to account for namespaces
                         if (previousType.type.DeclaringType != null) {
-                            //customTypeLookup.TryGetValue(SimplifyTypeFullName(previousType.type.DeclaringType), out previousType);
                             previousType = DependencyAnalyzer.GetCustomTypeFromString(SimplifyTypeFullName(previousType.type.DeclaringType));
                         }
                         else {
@@ -135,9 +126,9 @@ namespace WhatHappened {
                 } while (!foundParent);
 
                 // Get the CustomType associated with the string found in text (modified if type was nested to match desired format of key)
-                CustomType currentType = DependencyAnalyzer.GetCustomTypeFromString(classString.ToString());
+                CustomType currentType = DependencyAnalyzer.GetCustomTypeFromString(typeString.ToString());
                 if (currentType == null) {
-                    Debug.LogError("Could not find " + classString + " in customTypeLookup");
+                    Debug.LogError("Could not find " + typeString + " in customTypeLookup");
                 }
 
                 typesInFile.Add(currentType);

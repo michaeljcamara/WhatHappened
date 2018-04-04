@@ -52,6 +52,9 @@ namespace WhatHappened {
         EventType previousEvent;
         GUIStyle labelStyle;
 
+        int totalChangesInTree = 0;
+        float maxImpactStrength = 0;
+
         private void Awake() {
             Debug.LogWarning("NOW AWAKE!!");
         }
@@ -202,6 +205,7 @@ namespace WhatHappened {
                 }
             }
 
+            // Need this interim step to prevent Unity bug when immediately referencing the selected node
             if (previousEvent == EventType.Repaint) {
                 selectedNode = specialNode;
             }
@@ -298,6 +302,7 @@ namespace WhatHappened {
                 GUILayout.EndHorizontal();
             }
 
+            GUILayout.Label("    Impact Strength: " + Math.Round(selectedNode.GetNormalizedImpactStrength(),2) + " out of 1");
             GUILayout.Label("    Total Changes: " + t.totalLineChanges);
             GUILayout.Label("    Changes Outside Methods: " + t.totalChangesOutsideMethods);
             GUILayout.Label("        Additions: " + t.additionsOutsideMethods);
@@ -393,9 +398,23 @@ namespace WhatHappened {
         }
 
         void DiffFilesInTree() {
+            totalChangesInTree = 0;
             foreach (CustomFile f in allFiles) {
-                gitAnalyzer.DiffFile(f, commitIndex - 1); // -1 since index 0 is just "NO SELECTION"
+                totalChangesInTree += gitAnalyzer.DiffFile(f, commitIndex - 1); // -1 since index 0 is just "NO SELECTION"
             }
+
+            maxImpactStrength = 0;
+            //foreach(CustomTypeNode node in allNodes.Values) {
+            foreach (LinkedList<CustomTypeNode> nodes in allNodes.Values) {
+                foreach (CustomTypeNode node in nodes) {
+                    float currentStrength = node.CalculateAbsoluteImpactStrength(totalChangesInTree, allNodes.Count);
+                    if (currentStrength > maxImpactStrength) {
+                        maxImpactStrength = currentStrength;
+                    }
+                }
+            }
+
+
         }
 
 
@@ -406,6 +425,8 @@ namespace WhatHappened {
             prevSelectedNode = null;
             isFirstFrameDrawn = true;
             maxNodesPerLevel = 0;
+            totalChangesInTree = 0;
+            maxImpactStrength = 0;
             yPad = 0;
             nodesPerLevel = new Dictionary<int, int>();
             allFiles = new HashSet<CustomFile>();
@@ -538,26 +559,37 @@ namespace WhatHappened {
                 yPad = 0;
                 //yPad = scaledRect.height / 2f - scaledTreeHeight / 2f;
                 //Debug.LogWarning("************* TreeHeight: " + scaledTreeHeight + ", RectHeight: " + scaledRect.height);
-                scrollPosition.y = scaledTreeHeight / 4;
+                scrollPosition.y = scaledTreeHeight / 2f - scaledWindowHeight / 2f;
             }
             isFirstFrameDrawn = false;
-
+            
             scrollPosition = GUI.BeginScrollView(new Rect(0, 0, window.position.width * horizontalSplitView.splitNormalizedPosition, window.position.height), scrollPosition, scaledRect);
 
             foreach (KeyValuePair<int, LinkedList<CustomTypeNode>> pair in allNodes) {
                 int level = pair.Key;
                 int numNodes = pair.Value.Count;
 
-                float xStep = baseBoxHeight * 3;
-                float yStep = ((maxNodesPerLevel * 2 - 1) - numNodes) / (numNodes + 1.0f) * baseBoxHeight;
+                float xStep = baseBoxWidth * 3;
+                float yStep = ((maxNodesPerLevel * 2 - 1) - numNodes) / (numNodes + 1.0f) * baseBoxHeight; 
 
                 xStep += xStep * zoomeScaleStep * zoomLevel;
                 yStep += yStep * zoomeScaleStep * zoomLevel;
 
                 int nodeIndex = 0;
                 foreach (CustomTypeNode node in pair.Value) {
+                    float yPos = 0, xPos = 0;
+                    if (numNodes == maxNodesPerLevel) {
+                        yPos = yPad + 2 * scaledBoxHeight * nodeIndex;
+                    }
+                    else {
+                        yPos = yPad + yStep * (nodeIndex + 1) + scaledBoxHeight * nodeIndex;
+                    }
+
+                    xPos = xPad + xStep * level;
+
                     //Debug.Log("Drawing: " + node.type.simplifiedFullName + ", level: " + level + ", Index: " + nodeIndex);
-                    node.rect = new Rect(xPad + xStep * level, yPad + (nodeIndex + 1) * yStep + (nodeIndex * scaledBoxHeight), scaledBoxWidth, scaledBoxHeight);
+                    //node.rect = new Rect(xPad + xStep * level, yPad + (nodeIndex + 1) * yStep + (nodeIndex * scaledBoxHeight), scaledBoxWidth, scaledBoxHeight);
+                    node.rect = new Rect(xPos, yPos, scaledBoxWidth, scaledBoxHeight);
 
                     // Draw outline around node (by putting a bigger yellow box behind it)
                     if (node == selectedNode) {
@@ -569,8 +601,12 @@ namespace WhatHappened {
                     }
 
                     if (node.type.hasChanged) {
-                        //TODO gradation based on impact strength
+
+                        float normalizedImpactStrength = node.CalculateNormalizedImpactStrength(maxImpactStrength);
+
                         GUI.color = Color.red;
+
+                        GUI.color = Color.HSVToRGB(0, normalizedImpactStrength, 1);
                     }
                     else {
                         GUI.color = Color.white;
