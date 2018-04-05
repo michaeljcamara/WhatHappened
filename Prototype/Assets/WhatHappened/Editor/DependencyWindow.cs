@@ -16,6 +16,7 @@ namespace WhatHappened {
         private float zoomPositionStep = 20f;
         private float zoomeScaleStep = 0.1f;
         private float zoomLevel = 0;
+        private int defaultFontSize = 12;
 
         private static DependencyWindow window;
         private DependencyAnalyzer analyzer;
@@ -106,7 +107,7 @@ namespace WhatHappened {
         private void InitGUIStyle() {
             style = new GUIStyle(GUI.skin.box);
             style.font = Resources.Load<Font>("JAi_____");
-            style.fontSize = 12;
+            style.fontSize = defaultFontSize;
             style.alignment = TextAnchor.MiddleCenter;
 
             labelStyle = new GUIStyle(GUI.skin.label);
@@ -375,26 +376,40 @@ namespace WhatHappened {
 
 
             if (typeIndex != prevTypeIndex) {
+                hideUnchanged = false;
                 ResetTree();
+                DiffFilesInTree();
                 prevTypeIndex = typeIndex;
             }
 
             commitIndex = EditorGUILayout.Popup("Select Past Commit:", commitIndex, commitNames, popupStyle);
 
             if (commitIndex != prevCommitIndex) {
-
+                hideUnchanged = false;
+                ResetTree();
+                //float tempStrength = maxImpactStrength;
                 DiffFilesInTree();
+                // If going from unfiltered to filtered, then ensure the maxImpact strength reflects the unfiltered tree
+                //if (hideUnchanged == true) {
+                //    maxImpactStrength = tempStrength;
+                //}
+
                 prevCommitIndex = commitIndex;
             }
 
             hideUnchanged = EditorGUILayout.Toggle("Hide Unchanged Nodes:", hideUnchanged);
             if(hideUnchanged != previousToggle) {
                 previousToggle = hideUnchanged;
+                float tempStrength = maxImpactStrength;
                 ResetTree(); //but keep same type/git index
-            }
-            //TODO FILTER BUTTON!!!!!!!!!
-            // reset ONCE when pressed
+                DiffFilesInTree();
 
+                // If going from unfiltered to filtered, then ensure the maxImpact strength reflects the unfiltered tree
+                if (hideUnchanged == true) {
+                    maxImpactStrength = tempStrength;
+                }
+                //TODO: Consider if maxNumLevels in tree changes, alter impact strength
+            }
         }
 
         void DiffFilesInTree() {
@@ -419,6 +434,10 @@ namespace WhatHappened {
 
 
         void ResetTree(bool keepIndicesSame = false) {
+
+            if(style != null) {
+                style.fontSize = defaultFontSize;
+            }
 
             selectedNode = null;
             specialNode = null;

@@ -45,7 +45,7 @@ namespace WhatHappened {
         //Return total lines of code changed
         public int DiffFile(CustomFile file, int commitIndex) {
             if (file == null) {
-                Debug.LogError("TRYING TO DIFf NULL FILE");
+                //Debug.LogError("TRYING TO DIFf NULL FILE");
                 return 0;
             }
             file.ClearPreviousChanges();
@@ -71,7 +71,7 @@ namespace WhatHappened {
             PatchEntryChanges changes = patch[file.relPath]; //WORKS if correct relpath
             string patchText = changes.Patch; // If no changes b/w commits, then "", or if notIncludeModified, null changes
             file.SetDiffText(patchText);
-            Debug.LogError("***THEPATCH: " + patchText);
+            //Debug.LogError("***THEPATCH: " + patchText);
 
             // WORKS  all hunk in one long string
             string diffPattern = @"\@\@\s\-(?:\d+)(?:,\d+)??\s\+(?<start>\d+)(?:,\d+)??\s\@\@
@@ -139,13 +139,13 @@ namespace WhatHappened {
 
             List<CustomType> typesInFile = file.GetTypesInFile();
 
-            foreach (CustomType t in typesInFile) {
-                Debug.LogError("Total changes in " + t + ": " + t + ", inMethods: " + t.totalChangesInMethods + ", outMethods: " + t.totalChangesOutsideMethods);
+            //foreach (CustomType t in typesInFile) {
+            //    Debug.LogError("Total changes in " + t + ": " + t + ", inMethods: " + t.totalChangesInMethods + ", outMethods: " + t.totalChangesOutsideMethods);
 
-                foreach (CustomMethod m in t.methods) {
-                    Debug.LogWarning("   Total changes in " + m + ": " + (m.additions + m.deletions) + "(Adds: " + m.additions + ", Dels: " + m.deletions + ")");
-                }
-            }
+            //    foreach (CustomMethod m in t.methods) {
+            //        Debug.LogWarning("   Total changes in " + m + ": " + (m.additions + m.deletions) + "(Adds: " + m.additions + ", Dels: " + m.deletions + ")");
+            //    }
+            //}
 
             return totalFileChanges;
         }
