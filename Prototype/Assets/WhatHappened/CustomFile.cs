@@ -1,22 +1,29 @@
-﻿using System.Collections;
+﻿// Author: Michael Camara
+// Repository: https://github.com/michaeljcamara/WhatHappened
+
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using System;
 namespace WhatHappened {
     public class CustomFile {
+                 
+        public FileInfo info { get; }
 
-        private List<CustomType> types;
-        private FileInfo _info;
-        public FileInfo info { get { return _info; } }
+        // Patch containing the full patch obtained from diffing this file in GitAnalyzer
+        public string diffPatchText { get; set; }
 
-        List<CustomType> _topLevelTypes;
-        List<CustomType> topLevelTypes {
+        // List of ALL types (nested and non-nested) in this file
+        public List<CustomType> types { get; set; }
+
+        // Keep separate list of top-level types (i.e. those that are NOT nested in other types)
+        private List<CustomType> _topLevelTypes;
+        private List<CustomType> topLevelTypes {
             get {
                 if (_topLevelTypes == null) {
                     _topLevelTypes = new List<CustomType>();
                     foreach (CustomType t in types) {
-                        if (!t.type.IsNested) {
+                        if (!t.assemblyType.IsNested) {
                             _topLevelTypes.Add(t);
                         }
                     }
@@ -26,11 +33,9 @@ namespace WhatHappened {
             }
         }
 
-        private static Uri projectUri = new Uri(Path.GetFullPath("."));
-        private static Uri assetsUri = new Uri(Application.dataPath);
-
         public string fullPath { get { return info.FullName; } }
 
+        // Path relative to the /Assets/ directory (needed for opening files on button press)
         private string _assetsRelPath;
         public string assetsRelPath {
             get {
@@ -44,6 +49,7 @@ namespace WhatHappened {
             }
         }
 
+        // Path relative to top-level project directory
         private string _relPath;
         public string relPath {
             get {
@@ -57,36 +63,26 @@ namespace WhatHappened {
             }
         }
 
-        private string diffText;
+        private static readonly Uri projectUri = new Uri(Path.GetFullPath("."));
+        private static readonly Uri assetsUri = new Uri(Application.dataPath);
 
-        public string name { get { return _info.Name; } }
-
-        public override string ToString() {
-            return _info.Name;
-        }
-        public void ClearPreviousChanges() {
-            foreach (CustomType t in types) {
-                t.ClearPreviousChanges();
-            }
-        }
         public CustomFile(FileInfo file) {
-            this._info = file;
+            info = file;
         }
 
-        public void SetTypesInFile(List<CustomType> types) {
-            this.types = types;
-        }
 
+        /// <summary>
+        /// Starting with the top-level types in this file, find which CustomType bounds the given line number.
+        /// If a match it found within a type, proceed to the deepest nested CustomType
+        /// </summary>
         public CustomType GetTypeByLineNumber(int lineNum) {
 
             CustomType chosenType = null;
 
-            //TODO optimize by always starting at the previous considered type. Skipping for now since likely only 1 type per class
+            //TODO optimize by always starting at the previous considered type.
             //int lastIndex = 0;
             for (int i = 0; i < topLevelTypes.Count; i++) {
                 CustomType currentType = topLevelTypes[i];
-                //Debug.Log("*** TOP LEVEL TYPE: " + currentType);
-                //chosenType = GetDeepestNestedTypeAtLineNum(currentType, lineNum);
                 chosenType = currentType.GetDeepestNestedTypeAtLineNum(lineNum);
                 if (chosenType != null) {
                     break;
@@ -96,72 +92,50 @@ namespace WhatHappened {
             return chosenType;
         }
 
-        private CustomType GetDeepestNestedTypeAtLineNum(CustomType currentType, int lineNum) {
-
-            CustomType deepestType = null;
-
-            if (lineNum >= currentType.startLineNum && lineNum <= currentType.endLineNum) {
-                CustomType[] nestedTypes = currentType.GetNestedCustomTypes();
-
-                // If no nested types, then the current type encapsulates the line number
-                if (nestedTypes.Length == 0) {
-                    Debug.LogError("**No nested types in : " + currentType.type.FullName);
-                    deepestType = currentType;
-                }
-                // Otherwise need to check nested types to see if the line number corresponds specifically to one of them
-                else {
-                    foreach (CustomType nestedType in nestedTypes) {
-                        CustomType t = GetDeepestNestedTypeAtLineNum(nestedType, lineNum);
-                        if (t != null) {
-                            deepestType = t;
-                            break;
-                        }
-                    }
-
-                    //None of nested types bound the lineNum, so the currentType is the deepest type bounding it
-                    if (deepestType == null) {
-                        deepestType = currentType;
-                    }
-                }
-            }
-
-            return deepestType;
-        }
-
-        public List<CustomType> GetTypesInFile() {
-            return types;
-        }
-
-        public void OpenDiffTextInEditor() {
+        /// <summary>
+        /// Open the diff patch for this file, generated by GitAnalyzer
+        /// </summary>
+        public void OpenDiffPatchInEditor() {
+            //TODO generalize this path in case WhatHappened in placed in alternative location
             string path = "Assets/WhatHappened/Resources/tempDiff.txt";
             StreamWriter writer = File.CreateText(path); //File.AppendText(path);
 
-            writer.Write(diffText);
+            writer.Write(diffPatchText);
             writer.Flush();
             writer.Close();
 
             //Re-import the file to update the reference in the editor
             UnityEditor.AssetDatabase.ImportAsset(path);
 
+            //Open the text file with the system's default text editing program
             UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(path));
 
             //TextAsset asset = Resources.Load<TextAsset>("tempDiff");
-
             //UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(path));
-
-            //UnityEditor.AssetDatabase.load
 
             //Print the text from the file
             //Debug.Log(asset.text);
-
         }
 
+        /// <summary>
+        /// Open this file at the given line number
+        /// </summary>
+        /// <param name="lineNum"></param>
         public void OpenFileInEditor(int lineNum = 1) {
             UnityEditor.AssetDatabase.OpenAsset(UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(assetsRelPath), lineNum);
         }
 
-        public void SetDiffText(string diff) {
-            diffText = diff;
+        /// <summary>
+        /// Reset any additions and deletions to this file's CustomTypes, as detected from the previous diff performed by GitAnalyzer
+        /// </summary>
+        public void ClearPreviousChanges() {
+            foreach (CustomType t in types) {
+                t.ClearPreviousChanges();
+            }
+        }
+
+        public override string ToString() {
+            return info.Name;
         }
     }
 }

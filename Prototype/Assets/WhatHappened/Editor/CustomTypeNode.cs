@@ -1,5 +1,6 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿// Author: Michael Camara
+// Repository: https://github.com/michaeljcamara/WhatHappened
+
 using UnityEngine;
 
 namespace WhatHappened {
@@ -15,22 +16,32 @@ namespace WhatHappened {
                 rightAnchor = rect.position + new Vector2(rect.width, rect.height / 2f);
             }
         }
-        public Vector2 pos;
-        public CustomType type;
-        public int level;
-        private bool _isCyclic;
-        public bool isCyclic { get { return _isCyclic; } }
-        float absoluteImpactStrength, normalizedImpactStrength;
+        public CustomType type { get; }
+        public int level { get; }
+        public bool bIsCyclic { get; set; }
+        public CustomTypeNode parent { get; }
+        public Vector3 leftAnchor { get; private set; }
+        public Vector3 rightAnchor { get; private set; }
 
-        public bool hasChanged;
+        //Impact strength [0,1] showing how likely changes in this node affect the root node
+        public float absoluteImpactStrength { get; private set; }
 
-        private CustomTypeNode _parent;
-        public CustomTypeNode parent { get { return _parent; } }
+        // Impact strength [0, maxImpactStrength], normalized with the max impact strength of all nodes in tree
+        public float normalizedImpactStrength { get; private set; }
 
-        public Vector3 leftAnchor;
-        public Vector3 rightAnchor;
+        public CustomTypeNode(CustomType type, CustomTypeNode parent, int level) {
+            this.type = type;
+            this.level = level;
+            this.parent = parent;
+        }
 
+        /// <summary>
+        /// Calculate three points to construct an arrow mesh directed toward the left anchor of this node, originating
+        /// from its parent
+        /// </summary>
+        /// <returns></returns>
         public Vector3[] GetArrow() {
+              
             float angle = Mathf.Atan2(leftAnchor.y - parent.rightAnchor.y, leftAnchor.x - parent.rightAnchor.x) * 180 / Mathf.PI; //eh works
 
             //Rotation code adapted from Unity forum user, aldonaletto: https://answers.unity.com/questions/532297/rotate-a-vector-around-a-certain-point.html
@@ -47,32 +58,15 @@ namespace WhatHappened {
             return new Vector3[] { leftAnchor, point1, point2 };
         }
 
-        public CustomTypeNode(CustomType type, CustomTypeNode parent, int level) {
-            this.type = type;
-            this.level = level;
-            this._parent = parent;
-        }
-
-        public void SetCyclic(bool isTrue) {
-            _isCyclic = isTrue;
-        }
-
-        public void SetParent(CustomTypeNode p) {
-            _parent = p;
-        }
-
         public float CalculateAbsoluteImpactStrength(int totalChangesInTree, int numLevelsInTree) {
             int linesOfCodeChanged = type.totalLineChanges;
             int distanceFromRoot = level;
 
             absoluteImpactStrength = (linesOfCodeChanged / (float)totalChangesInTree) * ((numLevelsInTree - distanceFromRoot) / (float) numLevelsInTree);
 
-            //Debug.Log("TotalChanges: " + totalChangesInTree + ", NumLevs: " + numLevelsInTree);
-            //Debug.LogWarning("Strength, Level: " + level + ",Type: " + type + ": " + impactStrength);
             //TODO other metrics, like time since change made, num similar nodes in tree
 
             return absoluteImpactStrength;
-            //figure out the max strength of all nodes, make that one strength = 1, so dark red, gradation from there.
         }
 
         //TODO if cyclic, get impact strength from cyclic parent, rather than recalculating
@@ -84,10 +78,6 @@ namespace WhatHappened {
                 normalizedImpactStrength = absoluteImpactStrength / maxImpactStrength;
                 return normalizedImpactStrength;
             }
-        }
-
-        public float GetNormalizedImpactStrength() {
-            return normalizedImpactStrength;
         }
     }
 }

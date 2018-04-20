@@ -1,51 +1,89 @@
-﻿using System;
+﻿// Author: Michael Camara
+// Repository: https://github.com/michaeljcamara/WhatHappened
+
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using System.IO;
 using System.Text.RegularExpressions;
-using System.Linq; //TODO any way to avoid "using system.linq" for just this one extension method? other way to do
-using LibGit2Sharp;
 
 namespace WhatHappened {
 
     public class DependencyAnalyzer {
 
-        //public Dictionary<CustomType, HashSet<CustomType>> dependencyTable;
-        public Assembly assembly; // TODO REMOVE THIS EVENTUALLY
+        // Table containing all types (as CustomTypes) in the assembly, referenced by name
         private static Dictionary<string, CustomType> customTypeLookup;
 
-        public static CustomType GetCustomTypeFromString(string typeName) {
-            if (customTypeLookup.ContainsKey(typeName)) {
-                return customTypeLookup[typeName];
+        public DependencyAnalyzer() {
+            customTypeLookup = CreateLookupTable();
+
+            foreach (CustomType customType in customTypeLookup.Values) {
+                GatherDependencies(customType);
             }
-            else {
-                return null;
-            }
+
+            GatherTypesInFiles();
         }
 
-        //public CustomType GetCustomTypeFromString(string typeName) {
-        //    if (customTypeLookup.ContainsKey(typeName)) {
-        //        return customTypeLookup[typeName];
-        //    }
-        //    else {
-        //        return null;
-        //    }
-        //}
+        /// <summary>
+        /// Create a CustomType for each assembly Type, and return a lookup table for each CustomType referenced by name
+        /// </summary>
+        /// <returns></returns>
+        private Dictionary<string, CustomType> CreateLookupTable() {
+            Dictionary<string, CustomType> customTypeLookup = new Dictionary<string, CustomType>();
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            Type[] types = assembly.GetTypes();
 
-        public Dictionary<string, CustomType>.ValueCollection GetAllCustomTypes() {
-            return customTypeLookup.Values;
+            foreach (Type currentType in types) {
+                //Exclude any types in the System or Unity namespaces
+                //TODO allow user configuration of which types/namespaces to exclude
+                if (currentType.Namespace == null || (currentType.Namespace != null && !currentType.Namespace.Contains("Unity") && !currentType.Namespace.Contains("System") && !currentType.Namespace.Contains("WhatHappened"))) {
+                    CustomType customType = new CustomType(currentType);
+                    customTypeLookup.Add(customType.simplifiedFullName, customType);
+                }
+            }
+
+            return customTypeLookup;
         }
 
-        //TODO IMPORTANT: Check if public/private classes WITHIN a class are captured by the GetALlTypes method
-        //YES: CurrentType: ClassB+anotherClass1 //TODO need to handle this corrrectly, indicate private class within ClassB
-        //TODO: Need to consider datastructures of types, like List<SomeType> or SomeType[]
-        //List: System.Collections.Generic.List`1[CustomMethod]
-        //TODO consider partial namespace prefixes, e.g. Int32 instead of System.Int32...umm, or need better example
-        //TODO If dependency is generic type, get genericParams, add to dependency list
-        //TODO need to add nested types to dep list
 
-        HashSet<Type> GetFieldDependencies(Type type) {
+        /// <summary>
+        /// Find all unique dependencies for a given CustomType, including field, method, nested, inherited, 
+        /// and generic types.  Then assign this set of dependencies to the given CustomType.
+        /// </summary>
+        private void GatherDependencies(CustomType customType) {
+
+            // First find all unique assembly Types that this CustomType depends on
+            HashSet<Type> dependencySet = new HashSet<Type>();
+            dependencySet.UnionWith(GetFieldDependencies(customType.assemblyType));
+            dependencySet.UnionWith(GetMethodDependencies(customType.assemblyType));
+            dependencySet.UnionWith(GetNestedDependencies(customType.assemblyType));
+            dependencySet.UnionWith(GetInheritedDependencies(customType.assemblyType));
+
+            // Iterate through these Type dependencies, and find the corresponding valid CustomType from the lookup table
+            HashSet<CustomType> customDependencySet = new HashSet<CustomType>();
+            foreach (Type t in dependencySet) {
+
+                //Ignore dependency with self
+                if (t != customType.assemblyType) {
+                    string simplifiedName = CustomType.SimplifyTypeFullName(t);
+
+                    //Dont add dependencies that aren't CustomTypes (e.g. those in System or Unity namespaces, as previously filtered)
+                    if (customTypeLookup.ContainsKey(simplifiedName)) {
+                        customDependencySet.Add(customTypeLookup[simplifiedName]);
+                    }
+                }
+            }
+
+            // Assign this unique set of dependencies to the CustomType for easy access later
+            customType.dependencies = customDependencySet;
+        }
+
+        /// <summary>
+        /// Return the unique set of dependencies gathered from field (i.e. instance/member) variables
+        /// of the given assembly Type
+        /// </summary>
+        private HashSet<Type> GetFieldDependencies(Type type) {
 
             FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static); // Includes all?
             HashSet<Type> types = new HashSet<Type>();
@@ -62,7 +100,11 @@ namespace WhatHappened {
             return types;
         }
 
-        HashSet<Type> GetMethodDependencies(Type type) {
+        /// <summary>
+        /// Return the unique set of dependencies gathered from each method, including return types, formal
+        /// parameters, and local variables contained within the method body of the given assembly Type
+        /// </summary>
+        private HashSet<Type> GetMethodDependencies(Type type) {
 
             MethodInfo[] methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly); // ONLY base, target     
 
@@ -105,7 +147,11 @@ namespace WhatHappened {
             return types;
         }
 
-        HashSet<Type> GetNestedDependencies(Type type) {
+        /// <summary>
+        /// Return the unique set of dependencies gathered from each nested type (e.g. nested classes)
+        /// in the given assembly Type
+        /// </summary>
+        private HashSet<Type> GetNestedDependencies(Type type) {
             Type[] nested = type.GetNestedTypes(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
             HashSet<Type> types = new HashSet<Type>();
 
@@ -119,7 +165,11 @@ namespace WhatHappened {
             return types;
         }
 
-        HashSet<Type> GetInheritedDependencies(Type type) {
+        /// <summary>
+        /// Return the unique set of dependencies gathered from any inherited interfaces or inherited class
+        /// from the given assembly Type
+        /// </summary>
+        private HashSet<Type> GetInheritedDependencies(Type type) {
             Type[] interfaces = type.GetInterfaces();
             Type baseType = type.BaseType;
 
@@ -140,7 +190,11 @@ namespace WhatHappened {
             return types;
         }
 
-        HashSet<Type> GetAllNestedGenerics(Type type) {
+        /// <summary>
+        /// Return the unique set of dependencies gathered from all generic types in the given
+        /// assembly Type.  Uses recursion to further find all nested generic Types beyond the first.
+        /// </summary>
+        private HashSet<Type> GetAllNestedGenerics(Type type) {
             HashSet<Type> types = new HashSet<Type>();
 
             // Add any generic types in this type, searching recursively for ALL generics in definition
@@ -153,92 +207,44 @@ namespace WhatHappened {
             return types;
         }
 
-        public DependencyAnalyzer() {
-
-            //TODO CONSTRUCTOR DEPS
-            assembly = Assembly.GetExecutingAssembly();
-            customTypeLookup = new Dictionary<string, CustomType>(); //NEWW
-
-            Type[] types = assembly.GetTypes();
-
-            foreach (Type currentType in types) {
-                //if ((currentType.Namespace != null && !currentType.Namespace.Contains("Unity") && !currentType.Namespace.Contains("System")) || (currentType != typeof(CustomType) && currentType != typeof(DependencyAnalyzer))) {
-                if (currentType.Namespace == null || (currentType.Namespace != null && !currentType.Namespace.Contains("Unity") && !currentType.Namespace.Contains("System") && !currentType.Namespace.Contains("WhatHappened"))) { 
-                    CustomType customType = new CustomType(currentType);
-                    customTypeLookup.Add(customType.simplifiedFullName, customType);
-                }
-            } 
-
-            foreach (CustomType customType in customTypeLookup.Values) {
-                HashSet<Type> dependencySet = new HashSet<Type>();
-
-                dependencySet.UnionWith(GetFieldDependencies(customType.type));
-                dependencySet.UnionWith(GetMethodDependencies(customType.type));
-                dependencySet.UnionWith(GetNestedDependencies(customType.type));
-                dependencySet.UnionWith(GetInheritedDependencies(customType.type));
-
-                HashSet<CustomType> customDependencySet = new HashSet<CustomType>();
-                foreach (Type t in dependencySet) {
-
-                    //Ignore dependency with self
-                    if (t != customType.type) {
-                        string simplifiedName = SimplifyTypeFullName(t);
-
-                        //Dont add dependencies that aren't CustomTypes (e.g. those in System or Unity namespaces, as previously filtered)
-                        if (customTypeLookup.ContainsKey(simplifiedName)) {
-                            customDependencySet.Add(customTypeLookup[simplifiedName]);
-                        }
-
-                    }
-                }
-
-                customType.SetDependencies(customDependencySet);
-            }
-
-            //Debug.LogWarning("Datapath is: " + Application.dataPath);
+        /// <summary>
+        /// Iterate through each C# file (.cs MIME type), parsing each using the FileParser class to find
+        /// all appropriate CustomTypes contained within them.  A CustomFile object is created for each
+        /// FileInfo object found in the project directory, which is populated with the list of CustomTypes
+        /// found within it.
+        /// </summary>
+        private void GatherTypesInFiles() {
             DirectoryInfo assetDir = new System.IO.DirectoryInfo(Application.dataPath);
             FileInfo[] csFiles = assetDir.GetFiles("*.cs", System.IO.SearchOption.AllDirectories);
-
             FileParser parser = new FileParser();
-            //Debug.LogWarning("Iterating all .cs files in Assets");
+            Regex whatHappenedRegex = new Regex(@"^.*Assets.*WhatHappened.*$", RegexOptions.IgnoreCase);
             foreach (FileInfo f in csFiles) {
-                if (f.FullName.Contains("WhatHappened")) {
-                    //Debug.LogWarning("Skipping File: " + f);
+                if (whatHappenedRegex.IsMatch(f.FullName)) {
                     continue;
                 }
-                //Debug.LogWarning("f: " + f + ", name: " + f.Name + ", fullName: " + f.FullName + ", length: " + f.Length);
-                //output: f: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts\ClassC.cs, name: ClassC.cs, fullName: D:\User\Documents\CMPSC\600\SeniorThesisPrototype\Prototype\Assets\Scripts\ClassC.cs, length: 276
 
                 CustomFile customFile = new CustomFile(f);
 
-                List<CustomType> typesInFile = parser.ExtractTypesFromFile(customFile);
-                customFile.SetTypesInFile(typesInFile);
+                // Parse file text and record all CustomTypes in CustomFile object
+                //Note: each CustomType also retains a reference to the CustomFile it resides in
+                List<CustomType> typesInFile = parser.MatchTypesInFile(customFile);
+                customFile.types = typesInFile;
             }
-
         }
 
-        
-
-
-
-        void OnEnable() {
-            Debug.LogError("ENABLING!!");
+        public static CustomType GetCustomTypeFromString(string typeName) {
+            if (customTypeLookup.ContainsKey(typeName)) {
+                return customTypeLookup[typeName];
+            }
+            else {
+                return null;
+            }
         }
 
-        void OnDisable() {
-            Debug.LogError("DISABLING!");
+        public Dictionary<string, CustomType>.ValueCollection GetAllCustomTypes() {
+            return customTypeLookup.Values;
         }
 
-        void OnReset() {
-            Debug.LogError("ON RESET");
-        }
-
-        void Reset() {
-            Debug.LogError("Reset");
-        }
-
-        private string SimplifyTypeFullName(Type t) {
-            return t.FullName.Replace(t.Namespace + ".", "");
-        }
+        //TODO CONSTRUCTOR DEPS
     }
 }

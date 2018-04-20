@@ -1,75 +1,115 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿// Author: Michael Camara
+// Repository: https://github.com/michaeljcamara/WhatHappened
+
+using System;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using UnityEngine;
 
 namespace WhatHappened {
     public class CustomMethod {
 
-        public int startLineNum, endLineNum;
-        public int additions, deletions;
+        public MethodInfo info { get; }
+
+        // Regex for matching this method's entire signature in source code
+        public Regex regex { get; }
+
+        // Signature for this method as it appeared in the source code
+        private string methodSignature;
+
+        // Regex for separating a type name from its container as it appears in the assembly
+        private static readonly Regex containerRegex = new Regex(@"(?<name>[^\[`]+)(?<ending>[\[`\&].*?$)");
+
+        // Keep track of all the changes to this method as detected through GitAnalyzer
+        public int additions { get; set; }
+        public int deletions { get; set; }
         public int totalChanges { get { return additions + deletions; } }
         public bool hasChanegd { get { return (totalChanges > 0); } }
 
-        public MethodInfo info;
+        public int startLineNum { get; set; }
+        public int endLineNum { get; set; }
 
         public CustomMethod(MethodInfo info) {
             this.info = info;
-            _regex = CreateMethodRegex();
+            regex = CreateMethodRegex();
         }
 
-        private Regex _regex;
-        public Regex regex { get { return _regex; } }
-        private string methodSignature;
-
-        public void ClearPreviousChanges() {
-            additions = deletions = 0;
-        }
-
+        /// <summary>
+        /// Create the Regex that will be used in FileParser for finding this method's signature in source code
+        /// </summary>
+        /// <returns></returns>
         private Regex CreateMethodRegex() {
 
+            // Create the pattern for all formal parameters
             System.Text.StringBuilder paramBuilder = new System.Text.StringBuilder("");
             foreach (ParameterInfo param in info.GetParameters()) {
                 string simplifiedType = SimplifyTypeName(param.ParameterType);
                 paramBuilder.Append(simplifiedType + @"\s*?" + param.Name + @"(\s*?,\s*?)??");
             }
+
             string simplifiedReturnType = SimplifyTypeName(info.ReturnType);
             string typeSpecifier = (info.DeclaringType.IsInterface) ? "interface" : "class";
+
+            // Concatenate these patterns into full a method signature regex
             string methodPattern = @"(?<=\b" + typeSpecifier + @"\s+?" + info.DeclaringType.Name + @"\b) (?:.*?)(?<methodSig>" + simplifiedReturnType + @"\s+?" + info.Name + @"\s*?\(" + paramBuilder.ToString() + @"\s*?\))(?=\s*?{)";
-
-            //// using .*? to allow for namespace specifiers, eg Michael.Classb vs ClassB. ALSO for generics, List<TypeHere> name
-
-            //Debug.Log("Method: " + info.Name);
-            //Debug.Log("  Full Method Pattern: " + methodPattern);
             Regex methodRegex = new Regex(methodPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.Singleline);
 
             return methodRegex;
         }
 
-        private static Regex arrayRegex = new Regex(@"\[\]");
         /// <summary>
-        /// Take a Type and return its name as it would be appear in source code, notably for primitive types.  E.g. change "Int32" type from System.Int32 to "int", as it would commonly be written in code.
-        /// List of built-in types taken from: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/built-in-types-table
+        /// Take a Type and return a pattern for its name as it would be appear in source code.
+        /// E.g. convert "System.Collections.Generic.List`1[System.Int32]" to 
+        /// "(System.Collections.Generic??List\<int\>"
         /// </summary>
         private string SimplifyTypeName(Type primitive) {
 
-            string startName = primitive.Name;
-            string endName = "";
+            string simplifiedName = primitive.Name;
+            string arrayBrackets = "";
 
+            // Match only the beginning of a type name if it is a container (e.g. "List`1[System.Int32]" to "List", "Int32[,]" to "Int32")
             if (primitive.IsArray || primitive.IsGenericType || primitive.IsByRef) {
-                string splitNameFromContainer = @"(?<name>[^\[`]+)(?<ending>[\[`\&].*?$)";
-                Match nameMatch = Regex.Match(primitive.Name, splitNameFromContainer);
+                Match nameMatch = containerRegex.Match(primitive.Name);
+                simplifiedName = nameMatch.Groups["name"].Captures[0].Value;
 
-                startName = nameMatch.Groups["name"].Captures[0].Value;
-                endName = nameMatch.Groups["ending"].Captures[0].Value;
-                endName = endName.Replace("[", @"\[");
-                endName = endName.Replace("]", @"\]");
+                // Capture any array brackets ("[]", "[][]", "[,,]" etc) and replace with escaped brackets
+                arrayBrackets = nameMatch.Groups["ending"].Captures[0].Value;
+                arrayBrackets = arrayBrackets.Replace("[", @"\[");
+                arrayBrackets = arrayBrackets.Replace("]", @"\]");
             }
 
-            //Get alpha-numeric-Underscore NAME first, e.g List not List`1, Int32 not Int32[][][] or Int32[,,]
-            switch (startName) {
+            //Simplify name if a primitive type (e.g. "System.Int32" to "int")
+            simplifiedName = SimplifyPrimitiveTypeName(simplifiedName);
+
+            //Simplify any generic parameters (and recursively include all nested generics)
+            if (primitive.IsGenericType) {
+                simplifiedName = SimplifyGenericTypeName(primitive);
+            }
+            //Re-attach the appropriate array brackets ("[]", "[,]", etc) if an array
+            else if (primitive.IsArray) {
+                simplifiedName += arrayBrackets;
+            }
+
+            if (primitive.Namespace == "") {
+                return simplifiedName;
+            }
+            //Prepend name with optional namespace pattern
+            else {
+                //TODO need to consider partial namespace usage
+                return @"(" + primitive.Namespace + @"\.)??" + simplifiedName;
+            }
+
+        }
+
+        /// <summary>
+        /// Change extended primitive type names to their equivalent names in shorthand source code,
+        /// e.g. change "Int32" type from System.Int32 to "int", as it would commonly be written in code.
+        /// List of built-in types taken from: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/built-in-types-table
+        /// </summary>
+        private string SimplifyPrimitiveTypeName(string originalName) {
+
+            string convertedName = "";
+
+            switch (originalName) {
                 case "Byte":
                 case "SByte":
                 case "Char":
@@ -78,62 +118,56 @@ namespace WhatHappened {
                 case "Object":
                 case "String":
                 case "Void":
-                    startName = startName.ToLower();
+                    convertedName = originalName.ToLower();
                     break;
 
                 case "Boolean":
-                    startName = "bool";
+                    convertedName = "bool";
                     break;
                 case "Single":
-                    startName = "float";
+                    convertedName = "float";
                     break;
                 case "Int32":
-                    startName = "int";
+                    convertedName = "int";
                     break;
                 case "UInt32":
-                    startName = "uint";
+                    convertedName = "uint";
                     break;
                 case "Int64":
-                    startName = "long";
+                    convertedName = "long";
                     break;
                 case "UInt64":
-                    startName = "ulong";
+                    convertedName = "ulong";
                     break;
                 case "Int16":
-                    startName = "short";
+                    convertedName = "short";
                     break;
                 case "UInt16":
-                    startName = "ushort";
+                    convertedName = "ushort";
                     break;
                 default:
                     //Debug.Log(primitive + " is not a primitive type.");
-                    break;
+                    return originalName;
             }
 
-            if (primitive.IsGenericType) {
-                startName = SimplifyGenericType(primitive);
-            }
-            else if (primitive.IsArray) {
-                startName += endName;
-            }
-
-            //TODO consider returning both "int" and "System.Int32" since technically either could be used
-
-            if (primitive.Namespace == "") {
-                return startName;
-            }
-            else {
-                return @"(" + primitive.Namespace + @"\.)??" + startName;
-            }
-
+            return convertedName;
         }
 
-        string SimplifyGenericType(Type generic) {
+        /// <summary>
+        /// Create a pattern for a given generic type to match its appearance in source code, further
+        /// including all nested generic types by working recursively.
+        /// </summary>
+        private string SimplifyGenericTypeName(Type generic) {
 
+            // Find the type name and append with opening angle bracket and optional whitespace
             string simplifiedName = generic.Name.Substring(0, generic.Name.IndexOf('`')) + @"\s*?\<\s*?";
             Type[] genericTypes = generic.GetGenericArguments();
+
+            // Recursively call SimplifyTypeName on any generic parameters
             for (int i = 0; i < genericTypes.Length; i++) {
                 simplifiedName += SimplifyTypeName(genericTypes[i]);
+
+                // Either append with closing bracket (if last generic type) or comma (if more generics at this level)
                 if (i < genericTypes.Length - 1) {
                     simplifiedName += @"\s*?,\s*?";
                 }
@@ -145,16 +179,27 @@ namespace WhatHappened {
             return simplifiedName;
         }
 
-        public override string ToString() {
-            return info.Name;
+        /// <summary>
+        /// Reset any previously recorded additions and deletions detected in this CustomType via the GitAnalyzer
+        /// </summary>
+        public void ClearPreviousChanges() {
+            additions = deletions = 0;
         }
 
+        /// <summary>
+        /// Set method signature based on its matched appearance in the source code (from FileParser)
+        /// </summary>
         public void SetSimplifiedMethodSignature(string sig) {
-            methodSignature = Regex.Replace(sig, @"\s+", " "); //TODO assess perf
+            // Trim excessive whitespace in signature
+            methodSignature = Regex.Replace(sig, @"\s+", " "); //TODO assess performance hit
         }
 
         public string GetSimplifiedMethodSignature() {
             return methodSignature;
+        }
+
+        public override string ToString() {
+            return info.Name;
         }
     }
 }
