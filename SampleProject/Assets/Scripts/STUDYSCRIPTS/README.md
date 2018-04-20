@@ -1,0 +1,1 @@
+These scripts were obtained from the "2D Platformer" demo, created by the Unity Technologies team and publicly available at: https://assetstore.unity.com/packages/essentials/tutorial-projects/2d-platformer-11228
