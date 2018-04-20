@@ -383,7 +383,7 @@ namespace WhatHappened {
 
                 // If going from unfiltered to filtered, then ensure the maxImpact strength reflects the unfiltered tree
                 if (hideUnchanged == true) {
-                    maxImpactStrength = tempStrength;
+                    //maxImpactStrength = tempStrength;
                 }
                 //TODO: Consider if maxNumLevels in tree changes, alter impact strength
             }
