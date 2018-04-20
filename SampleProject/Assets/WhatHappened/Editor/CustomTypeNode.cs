@@ -59,6 +59,11 @@ namespace WhatHappened {
         }
 
         public float CalculateAbsoluteImpactStrength(int totalChangesInTree, int numLevelsInTree) {
+
+            if(totalChangesInTree == 0) {
+                return 0;
+            }
+
             int linesOfCodeChanged = type.totalLineChanges;
             int distanceFromRoot = level;
 

@@ -78,11 +78,14 @@ namespace WhatHappened {
         /// </summary>
         public int DiffFile(CustomFile file, int commitIndex) {
 
+            //Ensure any previous changes detected by Git are removed before considering other changes
+            if (file != null) {
+                file.ClearPreviousChanges();
+            }
             // Return if the given file was null or if user selected "NO SELECTION" index from DependencyWindow drop-down
-            if (file == null || commitIndex == -1) {
+            if (file == null || commitIndex == -1) {    
                 return 0;
             }
-            file.ClearPreviousChanges();
 
             // Select the Git tree and file path for the given CustomFile
             LibGit2Sharp.Tree chosenTree = commitList[commitIndex].Tree;
@@ -125,7 +128,6 @@ namespace WhatHappened {
                 int lineNum = Int32.Parse(m.Groups["start"].Captures[0].Value);
 
                 // Read the patch line-by-line
-                System.Text.StringBuilder fileString = new System.Text.StringBuilder("");
                 StringReader reader = new StringReader(hunk);
                 string line;
                 while ((line = reader.ReadLine()) != null) {
