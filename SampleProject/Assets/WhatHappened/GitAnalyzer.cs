@@ -18,13 +18,13 @@ namespace WhatHappened {
         private Regex hunkRegex { get; }
 
         public GitAnalyzer() {
-            
+
+            commitList = new List<Commit>();
             repo = FindGitRepo();
             if(repo == null) {
                 return;
             }
 
-            commitList = new List<Commit>();
             foreach (Commit c in repo.Commits) {
                 commitList.Add(c);
             }
@@ -56,7 +56,7 @@ namespace WhatHappened {
 
                 if (dirs.Length == 0) {
                     if (gitDir.Parent == null) {
-                        Debug.LogError("!!Could not find Git directory working backwards, abort!");
+                        Debug.LogError("Could not find Git directory working backwards from Assets directory!");
                         return null;
                     }
                     else {
